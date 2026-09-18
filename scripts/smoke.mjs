@@ -22,6 +22,7 @@ const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
 await page.goto('http://127.0.0.1:5173', { waitUntil: 'domcontentloaded' })
 await page.waitForSelector('.workstation-shell')
+await page.getByRole('button', { name: 'OVERVIEW', exact: true }).click()
 if (await page.locator('.song-bar').count() !== 48) throw new Error('Authored arrangement is not 48 bars')
 
 const rangeAudit = await page.evaluate(async () => {
@@ -95,9 +96,9 @@ await waveDesigner.locator('.piano-keyboard .white-key').first().click()
 await page.getByRole('button', { name: 'Mute WAVE' }).click()
 await page.getByRole('button', { name: 'Mute WAVE' }).click()
 
-await page.getByRole('button', { name: 'LIVE', exact: true }).click()
+await page.locator('.global-actions').getByRole('button', { name: 'LIVE', exact: true }).click()
 if (!await page.locator('.workstation-shell.performance-view').count()) throw new Error('Live view did not engage')
-await page.getByRole('button', { name: 'MEDIA', exact: true }).click()
+await page.locator('.global-actions').getByRole('button', { name: 'MEDIA', exact: true }).click()
 await page.waitForFunction(() => (document.querySelector('#media-bay')?.getBoundingClientRect().y ?? 9999) < 300)
 if (await page.locator('.workstation-shell.performance-view').count()) throw new Error('Media jump did not leave compact Live view')
 const mediaBox = await page.locator('#media-bay').boundingBox()

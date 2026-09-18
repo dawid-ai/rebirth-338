@@ -8,6 +8,7 @@ try {
     if (width === 375) {
       await page.screenshot({ path: 'artifacts/responsive-375.png' })
       await page.locator('.bass-machine').first().screenshot({ path: 'artifacts/bass-375.png' })
+      await page.getByRole('button', { name: 'CONTROLS / AUTOMATION' }).click()
       await page.locator('.automation-editor').screenshot({ path: 'artifacts/automation-375.png' })
     }
     const layout = await page.evaluate(() => {

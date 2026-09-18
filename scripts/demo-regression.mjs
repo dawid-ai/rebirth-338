@@ -7,6 +7,7 @@ try {
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('http://127.0.0.1:5173', { waitUntil: 'domcontentloaded' })
   await page.waitForSelector('.workstation-shell')
+  await page.getByRole('button', { name: 'OVERVIEW', exact: true }).click()
   if (!await page.getByText('by DAWID.AI', { exact: true }).count()) throw new Error('Brand credit did not update')
 
   await page.evaluate(() => window.scrollTo(0, 650))

@@ -21,6 +21,13 @@ const tonalKeyOffsets: Record<string, number> = {
 }
 const triggerKeyCodes = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'BracketLeft', 'BracketRight']
 type KeyboardTarget = 'bass-0' | 'bass-1' | 'wave' | 'drums-0' | 'drums-1' | 'sampler' | 'fx'
+type FocusModule = 'bass-0' | 'bass-1' | 'wave' | 'drums-0' | 'drums-1' | 'live' | 'media' | 'mix'
+const focusModules: Array<{ id: FocusModule; label: string; detail: string }> = [
+  { id: 'bass-0', label: '303·1', detail: 'BASS LINE 01' }, { id: 'bass-1', label: '303·2', detail: 'BASS LINE 02' },
+  { id: 'wave', label: 'WAVE', detail: 'WAVE DESIGNER' }, { id: 'drums-0', label: '808', detail: 'DRUM MACHINE 808' },
+  { id: 'drums-1', label: '909', detail: 'DRUM MACHINE 909' }, { id: 'live', label: 'LIVE', detail: 'PERFORMANCE LAB' },
+  { id: 'media', label: 'MEDIA', detail: 'DECKS + SAMPLER' }, { id: 'mix', label: 'MIX', detail: 'MASTER BUS' },
+]
 const keyboardTargets: Array<{ id: KeyboardTarget; label: string }> = [
   { id: 'bass-0', label: '303·1' }, { id: 'bass-1', label: '303·2' }, { id: 'wave', label: 'WAVE' },
   { id: 'drums-0', label: '808' }, { id: 'drums-1', label: '909' }, { id: 'sampler', label: 'SAMPLE' }, { id: 'fx', label: 'FX' },
@@ -158,7 +165,7 @@ function ComputerKeyboard({ target, octave, pressed, sampler, onTarget, onOctave
   </section>
 }
 
-function BassUnit({ index, voice, currentStep, onChange, onPreview }: { index: number; voice: BassVoice; currentStep: number; onChange: (voice: BassVoice) => void; onPreview: (note: number) => void }) {
+function BassUnit({ index, voice, currentStep, onChange, onPreview, onEditStep }: { index: number; voice: BassVoice; currentStep: number; onChange: (voice: BassVoice) => void; onPreview: (note: number) => void; onEditStep?: (step: number) => void }) {
   const setParam = <K extends keyof BassVoice>(key: K, value: BassVoice[K]) => onChange({ ...voice, [key]: value })
   const setStep = (stepIndex: number, patch: Partial<BassVoice['steps'][number]>) => {
     const steps = voice.steps.map((step, cursor) => cursor === stepIndex ? { ...step, ...patch } : step)
@@ -215,8 +222,8 @@ function BassUnit({ index, voice, currentStep, onChange, onPreview }: { index: n
               key={stepIndex}
               aria-pressed={step.active}
               className={`${step.active ? 'on' : ''} ${step.accent ? 'accent' : ''} ${step.slide ? 'slide' : ''} ${editStep === stepIndex ? 'editing' : ''} ${currentStep === stepIndex ? 'playing' : ''}`}
-              onClick={() => { setEditStep(stepIndex); setStep(stepIndex, { active: !step.active }) }}
-              onContextMenu={(event) => { event.preventDefault(); setEditStep(stepIndex); setStep(stepIndex, { active: false, accent: false, slide: false, octave: 0 }) }}
+              onClick={() => { setEditStep(stepIndex); onEditStep?.(stepIndex); setStep(stepIndex, { active: !step.active }) }}
+              onContextMenu={(event) => { event.preventDefault(); setEditStep(stepIndex); onEditStep?.(stepIndex); setStep(stepIndex, { active: false, accent: false, slide: false, octave: 0 }) }}
               aria-label={`Step ${stepIndex + 1}, ${step.active ? noteNames[step.note % 12] : 'off'}`}
             >
               <i className="step-led" />
@@ -242,7 +249,7 @@ function BassUnit({ index, voice, currentStep, onChange, onPreview }: { index: n
 
 const designerWaveforms: DesignerWaveform[] = ['sine', 'triangle', 'sawtooth', 'square']
 
-function WaveDesigner({ voice, currentStep, onChange, onPreview, onSend }: { voice: WaveDesignerState; currentStep: number; onChange: (voice: WaveDesignerState) => void; onPreview: (note: number) => void; onSend: (index: 0 | 1) => void }) {
+function WaveDesigner({ voice, currentStep, onChange, onPreview, onSend, onEditStep }: { voice: WaveDesignerState; currentStep: number; onChange: (voice: WaveDesignerState) => void; onPreview: (note: number) => void; onSend: (index: 0 | 1) => void; onEditStep?: (step: number) => void }) {
   const [editStep, setEditStep] = useState(0)
   const selected = voice.steps[editStep]
   const setParam = <K extends keyof WaveDesignerState>(key: K, value: WaveDesignerState[K]) => onChange({ ...voice, [key]: value })
@@ -262,7 +269,7 @@ function WaveDesigner({ voice, currentStep, onChange, onPreview, onSend }: { voi
       <Knob bipolar label="TUNE" value={voice.tune} onChange={(tune) => setParam('tune', tune)} accent="silver" />
     </div>
     <div className="designer-sequencer">
-      <div className="designer-steps">{voice.steps.map((step, index) => <button key={index} aria-label={`Wave step ${index + 1}, ${step.active ? noteNames[step.note % 12] : 'off'}`} aria-pressed={step.active} className={`${step.active ? 'on' : ''} ${step.accent ? 'accent' : ''} ${editStep === index ? 'editing' : ''} ${currentStep === index ? 'playing' : ''}`} onClick={() => { setEditStep(index); setStep(index, { active: !step.active }) }} onContextMenu={(event) => { event.preventDefault(); setEditStep(index); setStep(index, { active: false, accent: false, slide: false, octave: 0 }) }}><small>{String(index + 1).padStart(2, '0')}</small><strong>{step.active ? noteNames[step.note % 12] : '—'}</strong></button>)}</div>
+      <div className="designer-steps">{voice.steps.map((step, index) => <button key={index} aria-label={`Wave step ${index + 1}, ${step.active ? noteNames[step.note % 12] : 'off'}`} aria-pressed={step.active} className={`${step.active ? 'on' : ''} ${step.accent ? 'accent' : ''} ${editStep === index ? 'editing' : ''} ${currentStep === index ? 'playing' : ''}`} onClick={() => { setEditStep(index); onEditStep?.(index); setStep(index, { active: !step.active }) }} onContextMenu={(event) => { event.preventDefault(); setEditStep(index); onEditStep?.(index); setStep(index, { active: false, accent: false, slide: false, octave: 0 }) }}><small>{String(index + 1).padStart(2, '0')}</small><strong>{step.active ? noteNames[step.note % 12] : '—'}</strong></button>)}</div>
       <div className="designer-editor"><div className="step-readout"><span>EDIT STEP</span><strong>{String(editStep + 1).padStart(2, '0')}</strong></div><PianoKeyboard selected={selected.note} onPlay={(note) => { setStep(editStep, { note, active: true }); onPreview(note) }} /><button aria-pressed={selected.accent} className={`function-key amber ${selected.accent ? 'active' : ''}`} onClick={() => setStep(editStep, { accent: !selected.accent })}>ACCENT</button><button aria-pressed={selected.slide} className={`function-key aqua ${selected.slide ? 'active' : ''}`} onClick={() => setStep(editStep, { slide: !selected.slide })}>HOLD</button><button className="function-key clear" onClick={() => setStep(editStep, { active: false, accent: false, slide: false, octave: 0 })}>CLEAR</button></div>
     </div>
   </section>
@@ -272,11 +279,12 @@ const drumLabels: Record<DrumName, string> = {
   kick: 'BD', snare: 'SD', clap: 'CP', closedHat: 'CH', openHat: 'OH', lowTom: 'LT', midTom: 'MT', highTom: 'HT', rim: 'RS', cowbell: 'CB',
 }
 
-function DrumMachine({ machine, machineIndex, currentStep, update, preview }: { machine: RhythmMachineState; machineIndex: number; currentStep: number; update: (machine: RhythmMachineState) => void; preview: (drum: DrumName) => void }) {
+function DrumMachine({ machine, machineIndex, currentStep, update, preview, onEditStep }: { machine: RhythmMachineState; machineIndex: number; currentStep: number; update: (machine: RhythmMachineState) => void; preview: (drum: DrumName) => void; onEditStep?: (step: number) => void }) {
   const drum = machine.selectedDrum
   const params = machine.drums[drum]
   const updateDrumParam = (key: keyof typeof params, value: number) => update({ ...machine, drums: { ...machine.drums, [drum]: { ...params, [key]: value } } })
   const cycleStep = (index: number) => {
+    onEditStep?.(index)
     const row = [...machine.steps[drum]]
     row[index] = ((row[index] + 1) % 3) as DrumStep
     const steps = { ...machine.steps, [drum]: row }
@@ -286,6 +294,7 @@ function DrumMachine({ machine, machineIndex, currentStep, update, preview }: { 
     if (row[index]) preview(drum)
   }
   const clearStep = (index: number) => {
+    onEditStep?.(index)
     const row = [...machine.steps[drum]]
     row[index] = 0
     const steps = { ...machine.steps, [drum]: row }
@@ -366,8 +375,8 @@ const automationChoices: Record<string, string[]> = {
   mode: ['oneShot', 'loop'],
 }
 
-function AutomationEditor({ project, playBar, playStep, channel, onChannel, onChange, onClear }: {
-  project: ProjectState; playBar: number; playStep: number; channel: AutomationChannel; onChannel: (channel: AutomationChannel) => void
+function AutomationEditor({ project, playBar, playStep, selectedBar, selectedStep, selectedDrum, selectedSlot, channels, channel, onChannel, onChange, onClear }: {
+  project: ProjectState; playBar: number; playStep: number; selectedBar?: number; selectedStep?: { step: number; serial: number } | null; selectedDrum?: DrumName; selectedSlot?: number; channels?: AutomationChannel[]; channel: AutomationChannel; onChannel: (channel: AutomationChannel) => void
   onChange: (scope: AutomationScope, bar: number, step: number, key: string, value: AutomationValue) => void
   onClear: (scope: 'bar' | 'step', bar: number, step: number) => void
 }) {
@@ -376,6 +385,10 @@ function AutomationEditor({ project, playBar, playStep, channel, onChannel, onCh
   const [targetStep, setTargetStep] = useState(1)
   const [targetDrum, setTargetDrum] = useState<DrumName>('kick')
   const [targetSlot, setTargetSlot] = useState(0)
+  useEffect(() => { if (selectedBar !== undefined) setTargetBar(selectedBar) }, [selectedBar])
+  useEffect(() => { if (selectedStep) { setTargetStep(selectedStep.step + 1); setScope('step') } }, [selectedStep])
+  useEffect(() => { if (selectedDrum) setTargetDrum(selectedDrum) }, [selectedDrum])
+  useEffect(() => { if (selectedSlot !== undefined) setTargetSlot(selectedSlot) }, [selectedSlot])
   const zeroBar = project.mode === 'song' ? Math.max(0, Math.min(targetBar - 1, project.songChain.length - 1)) : 0
   const zeroStep = targetStep - 1
   const shownProject = scope === 'global' ? project : applyChannelAutomation(project, zeroBar, scope === 'bar' ? -1 : zeroStep)
@@ -391,7 +404,7 @@ function AutomationEditor({ project, playBar, playStep, channel, onChannel, onCh
   }
   return <section className="automation-editor" id="automation-editor" aria-label="Channel automation editor">
     <header><div><span>AUTOMATION MEMORY</span><strong>CHANNEL / BAR / STEP</strong></div><small>Base → bar → step · saved with project</small></header>
-    <div className="automation-channel-pick" role="group" aria-label="Automation channel">{automationChannels.map((item) => <button key={item.id} aria-pressed={channel === item.id} className={channel === item.id ? 'active' : ''} onClick={() => onChannel(item.id)}>{item.label}</button>)}</div>
+    {(!channels || channels.length > 1) && <div className="automation-channel-pick" role="group" aria-label="Automation channel">{automationChannels.filter((item) => !channels || channels.includes(item.id)).map((item) => <button key={item.id} aria-pressed={channel === item.id} className={channel === item.id ? 'active' : ''} onClick={() => onChannel(item.id)}>{item.label}</button>)}</div>}
     {channel.startsWith('drums') && <label className="automation-subsource">DRUM VOICE <select aria-label="Automation drum voice" value={targetDrum} onChange={(event) => setTargetDrum(event.target.value as DrumName)}>{drumNames.map((name) => <option key={name} value={name}>{name.toUpperCase()}</option>)}</select></label>}
     {channel === 'sampler' && <label className="automation-subsource">SAMPLE PAD <select aria-label="Automation sample pad" value={targetSlot} onChange={(event) => setTargetSlot(Number(event.target.value))}>{project.sampler.slots.map((slot, index) => <option key={index} value={index}>{String(index + 1).padStart(2, '0')} · {slot.name}</option>)}</select></label>}
     <div className="automation-scope" role="group" aria-label="Automation scope">{(['global', 'bar', 'step'] as const).map((item) => <button key={item} aria-pressed={scope === item} className={scope === item ? 'active' : ''} onClick={() => setScope(item)}>{item === 'global' ? 'GLOBAL BASE' : item === 'bar' ? 'THIS BAR' : 'THIS STEP'}</button>)}</div>
@@ -502,16 +515,17 @@ const resampleSources: Array<{ id: ResampleSource; label: string }> = [
   { id: 'drums0', label: '808' }, { id: 'drums1', label: '909' }, { id: 'sampler', label: 'SAMPLER' }, { id: 'deck0', label: 'DECK A' }, { id: 'deck1', label: 'DECK B' },
 ]
 
-function SamplerBay({ sampler, update, trigger, stop, load, unload, waveform, autoChop, duplicate, resample }: { sampler: SamplerState; update: (sampler: SamplerState) => void; trigger: (index: number, velocity?: number, pitchOffset?: number) => void; stop: (index: number) => void; load: (index: number, file: File) => void; unload: (index: number) => void; waveform: (index: number) => number[]; autoChop: (index: number, count: number) => void; duplicate: (index: number) => void; resample: (index: number, source: ResampleSource) => void }) {
+function SamplerBay({ sampler, update, trigger, stop, load, unload, waveform, autoChop, duplicate, resample, onEditStep }: { sampler: SamplerState; update: (sampler: SamplerState) => void; trigger: (index: number, velocity?: number, pitchOffset?: number) => void; stop: (index: number) => void; load: (index: number, file: File) => void; unload: (index: number) => void; waveform: (index: number) => number[]; autoChop: (index: number, count: number) => void; duplicate: (index: number) => void; resample: (index: number, source: ResampleSource) => void; onEditStep?: (step: number) => void }) {
   const file = useRef<HTMLInputElement>(null)
   const [stepEditor, setStepEditor] = useState(0)
   const [resampleSource, setResampleSource] = useState<ResampleSource>('master')
   const selected = sampler.selectedSlot
   const slot = sampler.slots[selected]
   const updateSlot = (patch: Partial<typeof slot>) => update({ ...sampler, slots: sampler.slots.map((item, index) => index === selected ? { ...item, ...patch } : item) })
-  const cycleStep = (step: number) => { const steps = [...slot.steps]; steps[step] = ((steps[step] + 1) % 3) as DrumStep; setStepEditor(step); updateSlot({ steps }) }
+  const cycleStep = (step: number) => { const steps = [...slot.steps]; steps[step] = ((steps[step] + 1) % 3) as DrumStep; setStepEditor(step); onEditStep?.(step); updateSlot({ steps }) }
   const clearStep = (step: number) => {
     setStepEditor(step)
+    onEditStep?.(step)
     updateSlot({
       steps: slot.steps.map((value, index) => index === step ? 0 : value) as DrumStep[],
       stepVelocities: slot.stepVelocities.map((value, index) => index === step ? 100 : value),
@@ -537,7 +551,7 @@ function SamplerBay({ sampler, update, trigger, stop, load, unload, waveform, au
   </section>
 }
 
-function MediaBay({ project, playback, updateDeck, restoreDeck, updateSampler, loadDeck, playDeck, pauseDeck, cueDeck, seekDeck, jogDeck, unloadDeck, loadSample, unloadSample, triggerSample, stopSample, sampleWaveform, autoChop, duplicateSample, resample }: { project: ProjectState; playback: [DeckPlaybackState, DeckPlaybackState]; updateDeck: (index: number, patch: Partial<DeckState>) => void; restoreDeck: (index: 0 | 1) => void; updateSampler: (sampler: SamplerState) => void; loadDeck: (index: number, file: File) => void; playDeck: (index: number) => void; pauseDeck: (index: number) => void; cueDeck: (index: number) => void; seekDeck: (index: number, seconds: number) => void; jogDeck: (index: number, seconds: number) => void; unloadDeck: (index: number) => void; loadSample: (index: number, file: File) => void; unloadSample: (index: number) => void; triggerSample: (index: number, velocity?: number, pitchOffset?: number) => void; stopSample: (index: number) => void; sampleWaveform: (index: number) => number[]; autoChop: (index: number, count: number) => void; duplicateSample: (index: number) => void; resample: (index: number, source: ResampleSource) => void }) {
+function MediaBay({ project, playback, updateDeck, restoreDeck, updateSampler, loadDeck, playDeck, pauseDeck, cueDeck, seekDeck, jogDeck, unloadDeck, loadSample, unloadSample, triggerSample, stopSample, sampleWaveform, autoChop, duplicateSample, resample, onEditStep }: { project: ProjectState; playback: [DeckPlaybackState, DeckPlaybackState]; updateDeck: (index: number, patch: Partial<DeckState>) => void; restoreDeck: (index: 0 | 1) => void; updateSampler: (sampler: SamplerState) => void; loadDeck: (index: number, file: File) => void; playDeck: (index: number) => void; pauseDeck: (index: number) => void; cueDeck: (index: number) => void; seekDeck: (index: number, seconds: number) => void; jogDeck: (index: number, seconds: number) => void; unloadDeck: (index: number) => void; loadSample: (index: number, file: File) => void; unloadSample: (index: number) => void; triggerSample: (index: number, velocity?: number, pitchOffset?: number) => void; stopSample: (index: number) => void; sampleWaveform: (index: number) => number[]; autoChop: (index: number, count: number) => void; duplicateSample: (index: number) => void; resample: (index: number, source: ResampleSource) => void; onEditStep?: (step: number) => void }) {
   const signalState = (index: 0 | 1): DeckSignalState => {
     const deck = project.decks[index]
     if (deck.muted) return 'muted'
@@ -546,7 +560,7 @@ function MediaBay({ project, playback, updateDeck, restoreDeck, updateSampler, l
     if ((index === 0 && project.crossfader >= 99) || (index === 1 && project.crossfader <= -99)) return 'xfade-cut'
     return 'ready'
   }
-  return <section className="media-bay" id="media-bay"><header className="media-bay-header"><Disc3 /><div><span>MEDIA PERFORMANCE BAY</span><strong>TWIN DECKS + SAMPLER</strong></div><p>LOCAL AUDIO · JOG / CUE / LOOP · NON-DESTRUCTIVE</p></header><div className="twin-decks">{project.decks.map((deck, index) => <DeckUnit key={index} index={index} deck={deck} state={playback[index]} signalState={signalState(index as 0 | 1)} update={(patch) => updateDeck(index, patch)} onLoad={(file) => loadDeck(index, file)} onPlay={() => playDeck(index)} onPause={() => pauseDeck(index)} onCue={() => cueDeck(index)} onSeek={(seconds) => seekDeck(index, seconds)} onJog={(seconds) => jogDeck(index, seconds)} onUnload={() => unloadDeck(index)} onRestoreSound={() => restoreDeck(index as 0 | 1)} />)}</div><SamplerBay sampler={project.sampler} update={updateSampler} trigger={triggerSample} stop={stopSample} load={loadSample} unload={unloadSample} waveform={sampleWaveform} autoChop={autoChop} duplicate={duplicateSample} resample={resample} /></section>
+  return <section className="media-bay" id="media-bay"><header className="media-bay-header"><Disc3 /><div><span>MEDIA PERFORMANCE BAY</span><strong>TWIN DECKS + SAMPLER</strong></div><p>LOCAL AUDIO · JOG / CUE / LOOP · NON-DESTRUCTIVE</p></header><div className="twin-decks">{project.decks.map((deck, index) => <DeckUnit key={index} index={index} deck={deck} state={playback[index]} signalState={signalState(index as 0 | 1)} update={(patch) => updateDeck(index, patch)} onLoad={(file) => loadDeck(index, file)} onPlay={() => playDeck(index)} onPause={() => pauseDeck(index)} onCue={() => cueDeck(index)} onSeek={(seconds) => seekDeck(index, seconds)} onJog={(seconds) => jogDeck(index, seconds)} onUnload={() => unloadDeck(index)} onRestoreSound={() => restoreDeck(index as 0 | 1)} />)}</div><SamplerBay sampler={project.sampler} update={updateSampler} trigger={triggerSample} stop={stopSample} load={loadSample} unload={unloadSample} waveform={sampleWaveform} autoChop={autoChop} duplicate={duplicateSample} resample={resample} onEditStep={onEditStep} /></section>
 }
 
 const fxPadLabels = ['IMPACT', 'RISER', 'LASER', 'DUB SIREN', 'SUB DROP', 'NOISE HIT', 'VINYL STOP', 'TAPE STAB', 'AIR HORN', 'VOX CHOP', 'SCRATCH', 'BELL HIT']
@@ -594,6 +608,11 @@ export default function App() {
   const [showProjects, setShowProjects] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [performanceView, setPerformanceView] = useState(false)
+  const [focusMode, setFocusMode] = useState(() => localStorage.getItem('reborn338.workspace') !== 'overview')
+  const [focusModule, setFocusModule] = useState<FocusModule>('bass-0')
+  const [focusPane, setFocusPane] = useState<'machine' | 'controls'>('machine')
+  const [focusStep, setFocusStep] = useState<{ step: number; serial: number } | null>(null)
+  const [focusBar, setFocusBar] = useState(1)
   const [keyboardTarget, setKeyboardTarget] = useState<KeyboardTarget>('bass-0')
   const [keyboardOctave, setKeyboardOctave] = useState(0)
   const [keyboardPressed, setKeyboardPressed] = useState<Set<string>>(() => new Set())
@@ -663,6 +682,8 @@ export default function App() {
     localStorage.setItem('reborn338.autosave', JSON.stringify(project))
   }, [project])
 
+  useEffect(() => { localStorage.setItem('reborn338.workspace', focusMode ? 'focus' : 'overview') }, [focusMode])
+
   useEffect(() => {
     const liveAudio = playing || deckPlayback[0].playing || deckPlayback[1].playing
     if (!liveAudio) { setMeterLevel(0); setWaveform([]); setGainReduction(0); return }
@@ -702,8 +723,9 @@ export default function App() {
       bass: current.bass.map((voice, cursor) => cursor === index ? transferWaveToBass(voice, current.waveDesigner) : voice) as [BassVoice, BassVoice],
     }))
     setKeyboardTarget(`bass-${index}` as KeyboardTarget)
+    if (focusMode) { setFocusModule(`bass-${index}` as FocusModule); setAutomationChannel(`bass-${index}` as AutomationChannel); setFocusPane('machine') }
     notify(`WAVE PATCH LOADED INTO 303·${index + 1}`)
-  }, [commit, notify])
+  }, [commit, notify, focusMode])
   const updateDeck = useCallback((index: number, patch: Partial<DeckState>) => commit((current) => ({ ...current, decks: current.decks.map((deck, cursor) => cursor === index ? { ...deck, ...patch } : deck) as [DeckState, DeckState] })), [commit])
   const restoreDeckSound = useCallback((index: 0 | 1) => {
     commit((current) => ({
@@ -839,6 +861,7 @@ export default function App() {
     setCurrentStep(-1)
     seenDownbeat.current = false
     setBar(1)
+    setFocusBar(1)
     barRef.current = 1
     commit(next)
     setActiveProjectId(savedId)
@@ -848,6 +871,7 @@ export default function App() {
   }
   const jumpToBar = (targetBar: number) => {
     setBar(targetBar)
+    setFocusBar(targetBar)
     barRef.current = targetBar
     engineRef.current?.setSongPosition(targetBar - 1)
     commit((current) => current.mode === 'song' ? applySongPosition(current, targetBar - 1) : current)
@@ -871,6 +895,7 @@ export default function App() {
       return shiftAutomationBars({ ...current, songChain, songScenes }, targetBar, 1)
     })
     setBar(nextBar); barRef.current = nextBar; engineRef.current?.setSongPosition(nextBar - 1)
+    setFocusBar(nextBar)
     notify(`BAR INSERTED AFTER ${String(targetBar).padStart(2, '0')}`)
   }
   const addScene = (targetBar: number) => commit((current) => {
@@ -890,6 +915,7 @@ export default function App() {
       return shiftAutomationBars({ ...current, songChain, songScenes: normalizeSongScenes(shifted, songChain.length) }, removedIndex, -1)
     })
     setBar(nextBar); barRef.current = nextBar; engineRef.current?.setSongPosition(nextBar - 1)
+    setFocusBar(nextBar)
   }
   const loadDeckAudio = async (index: number, file: File) => {
     try {
@@ -974,7 +1000,21 @@ export default function App() {
     } catch { notify('RESAMPLE FAILED · CHECK SOURCE AUDIO') }
   }
   const scrollToRack = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' })
+  const selectFocusModule = (module: FocusModule) => {
+    setFocusModule(module)
+    setFocusPane('machine')
+    setFocusStep(null)
+    if (module === 'bass-0' || module === 'bass-1' || module === 'wave' || module === 'drums-0' || module === 'drums-1') {
+      setAutomationChannel(module)
+      setKeyboardTarget(module)
+    } else if (module === 'media') {
+      setAutomationChannel('sampler')
+      setKeyboardTarget('sampler')
+    }
+  }
+  const selectFocusStep = (step: number) => setFocusStep((current) => ({ step, serial: (current?.serial ?? 0) + 1 }))
   const openMediaBay = () => {
+    if (focusMode && !performanceView) { selectFocusModule('media'); return }
     if (!performanceView) { scrollToRack('media-bay'); return }
     setPerformanceView(false)
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => scrollToRack('media-bay')))
@@ -1004,7 +1044,7 @@ export default function App() {
   }
 
   return (
-    <main className={`workstation-shell ${performanceView ? 'performance-view' : ''}`}>
+    <main className={`workstation-shell ${performanceView ? 'performance-view' : ''} ${focusMode && !performanceView ? 'focus-mode' : ''}`}>
       <div className="ambient-glow" />
       <header className="transport-panel">
         <div className="product-mark"><span>by DAWID.AI</span><strong>RE:BORN <em>338</em></strong><small>ACID PERFORMANCE WORKSTATION / WEB EDITION</small></div>
@@ -1024,7 +1064,7 @@ export default function App() {
         </div>
         <div className="global-actions">
           <IconButton label="Undo" onClick={undo}><Undo2 /></IconButton><IconButton label="Redo" onClick={redo}><Redo2 /></IconButton>
-          <button className={`view-mode-button ${performanceView ? 'active' : ''}`} aria-pressed={performanceView} onClick={() => { setPerformanceView(!performanceView); notify(performanceView ? 'STUDIO VIEW' : 'PERFORMANCE VIEW') }}><Gauge /><span>{performanceView ? 'STUDIO' : 'LIVE'}</span></button>
+          <button className={`view-mode-button ${performanceView ? 'active' : ''}`} aria-pressed={performanceView} onClick={() => { setPerformanceView(!performanceView); if (!performanceView) setFocusMode(false); notify(performanceView ? 'STUDIO VIEW' : 'PERFORMANCE VIEW') }}><Gauge /><span>{performanceView ? 'STUDIO' : 'LIVE'}</span></button>
           <button className="view-mode-button media-jump-button" onClick={openMediaBay}><Disc3 /><span>MEDIA</span></button>
           <IconButton label="Projects" active={showProjects} onClick={openProjects}><FolderOpen /></IconButton>
           <IconButton label="Help" active={showHelp} onClick={() => setShowHelp(!showHelp)}><CircleHelp /></IconButton>
@@ -1032,21 +1072,35 @@ export default function App() {
       </header>
 
       <div className="status-rail"><span><i className="status-light" /> AUDIO ENGINE READY</span><span>16 STEP / 44.1 KHZ</span><span>LOCAL DSP · QWERTY INPUT</span><span className="status-tip">SPACE TO START · SELECT A KEYBOARD TARGET, THEN PLAY</span></div>
-      <ComputerKeyboard target={keyboardTarget} octave={keyboardOctave} pressed={keyboardPressed} sampler={project.sampler} onTarget={setKeyboardTarget} onOctave={setKeyboardOctave} />
+      <ComputerKeyboard target={keyboardTarget} octave={keyboardOctave} pressed={keyboardPressed} sampler={project.sampler} onTarget={(target) => { setKeyboardTarget(target); if (focusMode && !performanceView) selectFocusModule(target === 'sampler' ? 'media' : target === 'fx' ? 'live' : target) }} onOctave={setKeyboardOctave} />
       <nav className="rack-nav" aria-label="Rack navigation"><button onClick={() => { setKeyboardTarget('bass-0'); scrollToRack('bass-1') }}>303·1</button><button onClick={() => { setKeyboardTarget('bass-1'); scrollToRack('bass-2') }}>303·2</button><button onClick={() => { setKeyboardTarget('wave'); scrollToRack('wave-designer') }}>WAVE</button><button onClick={() => { setKeyboardTarget('drums-0'); scrollToRack('drum-808') }}>808</button><button onClick={() => { setKeyboardTarget('drums-1'); scrollToRack('drum-909') }}>909</button><button onClick={() => scrollToRack('performance-deck')}>LIVE</button><button onClick={() => { setKeyboardTarget('sampler'); scrollToRack('media-bay') }}>MEDIA</button><button onClick={() => scrollToRack('master-rack')}>MIX</button></nav>
 
       {project.mode === 'song' && <SongStrip project={project} bar={bar} onJump={jumpToBar} onCapture={captureBar} onInsert={insertBar} onRemove={removeBar} onAddScene={addScene} onRemoveScene={removeScene} onRenameScene={renameScene} />}
 
-      <div className="workspace-grid">
+      <section className="focus-command" aria-label="Workspace layout">
+        <div className="focus-command-heading"><span>WORKSPACE / {focusMode && !performanceView ? 'FOCUS' : 'OVERVIEW'}</span><strong>{focusModules.find((module) => module.id === focusModule)?.detail}</strong><small>BAR {String(bar).padStart(2, '0')} · KEY {String(Math.max(0, currentStep) + 1).padStart(2, '0')}</small></div>
+        <nav className="focus-module-rail" aria-label="Focus module">{focusModules.map((module) => <button key={module.id} aria-pressed={focusMode && !performanceView && focusModule === module.id} className={focusMode && !performanceView && focusModule === module.id ? 'active' : ''} onClick={() => { setPerformanceView(false); setFocusMode(true); selectFocusModule(module.id) }}>{module.label}</button>)}</nav>
+        <div className="workspace-switch" role="group" aria-label="Workspace view"><button aria-pressed={focusMode && !performanceView} className={focusMode && !performanceView ? 'active' : ''} onClick={() => { setPerformanceView(false); setFocusMode(true); selectFocusModule(focusModule) }}>FOCUS</button><button aria-pressed={!focusMode || performanceView} className={!focusMode || performanceView ? 'active' : ''} onClick={() => { setPerformanceView(false); setFocusMode(false) }}>OVERVIEW</button></div>
+      </section>
+      {focusMode && !performanceView && focusModule !== 'mix' && <div className="focus-pane-switch" role="group" aria-label="Focus pane"><button aria-pressed={focusPane === 'machine'} className={focusPane === 'machine' ? 'active' : ''} onClick={() => setFocusPane('machine')}>MACHINE</button><button aria-pressed={focusPane === 'controls'} className={focusPane === 'controls' ? 'active' : ''} onClick={() => setFocusPane('controls')}>CONTROLS / AUTOMATION</button></div>}
+
+      <div className={`workspace-grid ${focusMode && !performanceView ? `focus-workspace focus-pane-${focusPane}` : ''}`} data-module={focusModule}>
         <div className="machines-column">
-          <BassUnit index={0} voice={project.bass[0]} currentStep={currentStep} onChange={(voice) => updateBass(0, voice)} onPreview={(note) => engineRef.current?.previewBass(0, note)} />
-          <BassUnit index={1} voice={project.bass[1]} currentStep={currentStep} onChange={(voice) => updateBass(1, voice)} onPreview={(note) => engineRef.current?.previewBass(1, note)} />
-          <WaveDesigner voice={project.waveDesigner} currentStep={currentStep} onChange={updateWaveDesigner} onPreview={(note) => engineRef.current?.previewWave(note)} onSend={sendWaveToBass} />
-          <DrumMachine machine={project.rhythms[0]} machineIndex={0} currentStep={currentStep} update={(machine) => updateRhythm(0, machine)} preview={(name) => engineRef.current?.previewDrum(name, 0)} />
-          <DrumMachine machine={project.rhythms[1]} machineIndex={1} currentStep={currentStep} update={(machine) => updateRhythm(1, machine)} preview={(name) => engineRef.current?.previewDrum(name, 1)} />
+          <BassUnit index={0} voice={project.bass[0]} currentStep={currentStep} onChange={(voice) => updateBass(0, voice)} onPreview={(note) => engineRef.current?.previewBass(0, note)} onEditStep={selectFocusStep} />
+          <BassUnit index={1} voice={project.bass[1]} currentStep={currentStep} onChange={(voice) => updateBass(1, voice)} onPreview={(note) => engineRef.current?.previewBass(1, note)} onEditStep={selectFocusStep} />
+          <WaveDesigner voice={project.waveDesigner} currentStep={currentStep} onChange={updateWaveDesigner} onPreview={(note) => engineRef.current?.previewWave(note)} onSend={sendWaveToBass} onEditStep={selectFocusStep} />
+          <DrumMachine machine={project.rhythms[0]} machineIndex={0} currentStep={currentStep} update={(machine) => updateRhythm(0, machine)} preview={(name) => engineRef.current?.previewDrum(name, 0)} onEditStep={selectFocusStep} />
+          <DrumMachine machine={project.rhythms[1]} machineIndex={1} currentStep={currentStep} update={(machine) => updateRhythm(1, machine)} preview={(name) => engineRef.current?.previewDrum(name, 1)} onEditStep={selectFocusStep} />
           <PerformanceDeck project={project} bar={bar} update={update} triggerPad={(index) => engineRef.current?.previewFxPad(index)} launchScene={jumpToBar} captureScene={captureBar} markScene={addScene} />
-          <MediaBay project={project} playback={deckPlayback} updateDeck={updateDeck} restoreDeck={restoreDeckSound} updateSampler={updateSampler} loadDeck={(index, file) => void loadDeckAudio(index, file)} playDeck={(index) => void engineRef.current?.playDeck(index)} pauseDeck={(index) => engineRef.current?.pauseDeck(index)} cueDeck={(index) => engineRef.current?.cueDeck(index)} seekDeck={seekDeckPlayback} jogDeck={jogDeckPlayback} unloadDeck={(index) => void unloadDeckAudio(index)} loadSample={(index, file) => void loadSampleAudio(index, file)} unloadSample={(index) => void unloadSampleAudio(index)} triggerSample={(index, velocity, pitchOffset) => void engineRef.current?.triggerSample(index, velocity, pitchOffset)} stopSample={(index) => engineRef.current?.stopSample(index)} sampleWaveform={(index) => engineRef.current?.getSampleWaveform(index) ?? []} autoChop={autoChopSample} duplicateSample={duplicateSample} resample={(index, source) => void resampleToSlot(index, source)} />
+          <MediaBay project={project} playback={deckPlayback} updateDeck={updateDeck} restoreDeck={restoreDeckSound} updateSampler={updateSampler} loadDeck={(index, file) => void loadDeckAudio(index, file)} playDeck={(index) => void engineRef.current?.playDeck(index)} pauseDeck={(index) => engineRef.current?.pauseDeck(index)} cueDeck={(index) => engineRef.current?.cueDeck(index)} seekDeck={seekDeckPlayback} jogDeck={jogDeckPlayback} unloadDeck={(index) => void unloadDeckAudio(index)} loadSample={(index, file) => void loadSampleAudio(index, file)} unloadSample={(index) => void unloadSampleAudio(index)} triggerSample={(index, velocity, pitchOffset) => void engineRef.current?.triggerSample(index, velocity, pitchOffset)} stopSample={(index) => engineRef.current?.stopSample(index)} sampleWaveform={(index) => engineRef.current?.getSampleWaveform(index) ?? []} autoChop={autoChopSample} duplicateSample={duplicateSample} resample={(index, source) => void resampleToSlot(index, source)} onEditStep={selectFocusStep} />
         </div>
+
+        {focusMode && !performanceView && focusModule !== 'mix' && <aside className="focus-inspector" aria-label="Focused channel controls">
+          <header><div><span>CHANNEL INSPECTOR</span><strong>{focusModules.find((module) => module.id === focusModule)?.detail}</strong></div><small>EDIT BESIDE THE MACHINE</small></header>
+          <div className="focus-global-return"><div><span>MASTER FX RETURN</span><small>Shared by every channel; sends remain independent.</small></div><button aria-label="All echo effects" aria-pressed={project.effectsEnabled} className={project.effectsEnabled ? 'active' : ''} onClick={() => update({ effectsEnabled: !project.effectsEnabled })}>FX {project.effectsEnabled ? 'ON' : 'OFF'}</button><label>ECHO MIX <input aria-label="Focus global echo mix" type="range" min="0" max="100" value={project.delayMix} onChange={(event) => update({ delayMix: Number(event.target.value) })} /><output>{project.delayMix}</output></label><label>REVERB MIX <input aria-label="Focus global reverb mix" type="range" min="0" max="100" value={project.reverbMix} onChange={(event) => update({ reverbMix: Number(event.target.value) })} /><output>{project.reverbMix}</output></label></div>
+          <AutomationEditor project={project} playBar={bar} playStep={currentStep} selectedBar={focusBar} selectedStep={focusStep} selectedDrum={focusModule === 'drums-0' ? project.rhythms[0].selectedDrum : focusModule === 'drums-1' ? project.rhythms[1].selectedDrum : undefined} selectedSlot={focusModule === 'media' ? project.sampler.selectedSlot : undefined} channels={focusModule === 'media' ? ['deck-0', 'deck-1', 'sampler'] : focusModule === 'live' ? undefined : [automationChannel]} channel={automationChannel} onChannel={setAutomationChannel} onChange={changeAutomation} onClear={clearAutomation} />
+          <button className="focus-open-mix" onClick={() => selectFocusModule('mix')}>OPEN FULL MIX + EXPORT →</button>
+        </aside>}
 
         <aside className="master-rack" id="master-rack">
           <Screw dark /><Screw dark /><Screw dark /><Screw dark />
@@ -1078,7 +1132,7 @@ export default function App() {
               <ChannelStrip label="SAMP" level={project.sampler.level} pan={project.sampler.pan} delay={project.sampler.delay} reverb={project.sampler.reverb} eq={[project.sampler.eqLow, project.sampler.eqMid, project.sampler.eqHigh]} muted={project.sampler.muted} solo={project.sampler.solo} onLevel={(level) => updateSampler({ ...project.sampler, level })} onPan={(pan) => updateSampler({ ...project.sampler, pan })} onDelay={(delay) => updateSampler({ ...project.sampler, delay })} onReverb={(reverb) => updateSampler({ ...project.sampler, reverb })} onEq={(band, value) => updateSampler({ ...project.sampler, [(['eqLow', 'eqMid', 'eqHigh'] as const)[band]]: value })} onMute={() => updateSampler({ ...project.sampler, muted: !project.sampler.muted })} onSolo={() => updateSampler({ ...project.sampler, solo: !project.sampler.solo })} />
               {project.decks.map((deck, index) => <ChannelStrip key={index} label={`DECK ${index ? 'B' : 'A'}`} level={deck.gain} pan={deck.pan} delay={deck.delay} reverb={deck.reverb} eq={[deck.eqLow, deck.eqMid, deck.eqHigh]} muted={deck.muted} solo={deck.solo} onLevel={(gain) => updateDeck(index, { gain })} onPan={(pan) => updateDeck(index, { pan })} onDelay={(delay) => updateDeck(index, { delay })} onReverb={(reverb) => updateDeck(index, { reverb })} onEq={(band, value) => updateDeck(index, { [(['eqLow', 'eqMid', 'eqHigh'] as const)[band]]: value })} onMute={() => updateDeck(index, { muted: !deck.muted })} onSolo={() => updateDeck(index, { solo: !deck.solo })} />)}
             </div>
-            <AutomationEditor project={project} playBar={bar} playStep={currentStep} channel={automationChannel} onChannel={setAutomationChannel} onChange={changeAutomation} onClear={clearAutomation} />
+            {(!focusMode || focusModule === 'mix' || performanceView) && <AutomationEditor project={project} playBar={bar} playStep={currentStep} channel={automationChannel} onChannel={setAutomationChannel} onChange={changeAutomation} onClear={clearAutomation} />}
           </div>
           <Scope samples={waveform} />
           <div className="rack-module delay-module">
@@ -1136,7 +1190,8 @@ export default function App() {
           <section><h3>6 · SAMPLE & DJ</h3><p>Decks A/B start with playable loops. A red deck status identifies mute, Solo blocking, zero gain, or a crossfader cut; <b>Restore Sound</b> repairs that routing. Amen Break is ready for Auto 4/8 chopping and Warp.</p></section>
           <section><h3>7 · SAVE & EXPORT</h3><p>Autosave and named projects stay locally in this browser. Project export preserves settings and user-audio references on this device; WAV Export renders the full song or a four-bar pattern loop.</p></section>
           <section><h3>GLOBAL SOUND</h3><p>Echo and Reverb Mix act on every audible channel; mixer ECHO+ and SPACE+ add extra send for that channel. All Echo FX OFF bypasses delay, reverb, and Live Beat Repeat. Soften tames harshness, while Brightness, Drive, and Glue shape the full mix.</p></section>
-          <section><h3>CHANNEL AUTOMATION</h3><p>In Mix → Automation Memory, choose any channel, then Global Base, This Bar, or This Step. Bar overrides apply only to the chosen song bar; step overrides apply only to its selected key. Unchanged controls inherit the broader setting. Use Playhead to target what is playing, or Clear to remove an override. Automation is saved with projects and included in WAV exports.</p></section>
+          <section><h3>FOCUS WORKSPACE</h3><p>Choose a machine in the workspace rail. Its sequence and controls stay side by side; on a narrow screen, switch between Machine and Controls. Clicking a sequence key targets This Step in the inspector. Overview restores the full rack, while Mix opens master sound and WAV export.</p></section>
+          <section><h3>CHANNEL AUTOMATION</h3><p>In the focused inspector, choose Global Base, This Bar, or This Step. Bar overrides apply only to the chosen song bar; step overrides apply only to its selected key. Unchanged controls inherit the broader setting. Use Playhead to target what is playing, or Clear to remove an override. Automation is saved with projects and included in WAV exports.</p></section>
           <section><h3>FAST START</h3><p>Press <kbd>Space</kbd> to hear the current song. In Projects, choose a demo and Load Selected Demo for a fresh complete song and sound setup. These are original tributes, not soundtrack recordings.</p></section>
         </div>
         <p className="browser-note">Audio wakes after your first click or key press, as required by modern browsers.</p>
