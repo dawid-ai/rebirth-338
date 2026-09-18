@@ -1,0 +1,27 @@
+{
+  "name": "rebirth-338-browser",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "tsc -b && vite build --config vite.config.ts",
+    "preview": "vite preview --config vite.config.ts --base /rebirth-338/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "jsdom": "latest",
+    "playwright": "^1.63.0",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

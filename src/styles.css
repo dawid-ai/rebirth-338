@@ -1,0 +1,450 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  color: #e9eee8;
+  background: #080a0a;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-synthesis: none;
+  --acid: #c7ff39;
+  --acid-dark: #6d9410;
+  --amber: #ffad32;
+  --aqua: #45e8d1;
+  --red: #ff5a42;
+  --ink: #080a09;
+  --panel: #c8c7bb;
+  --panel-dark: #1a1d1c;
+  --line: rgba(20, 23, 20, .44);
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: #070908; }
+body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: hidden; }
+button, input { font: inherit; }
+button { border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--acid); outline-offset: 2px; }
+
+.workstation-shell {
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 20% 5%, rgba(183, 255, 35, .07), transparent 24rem),
+    radial-gradient(circle at 88% 44%, rgba(255, 148, 35, .06), transparent 32rem),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(255,255,255,.012) 40px),
+    linear-gradient(140deg, #111513 0%, #080a09 58%, #111313 100%);
+  padding: 18px clamp(12px, 2vw, 32px) 24px;
+}
+
+.workstation-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: .26;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.84' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.15'/%3E%3C/svg%3E");
+}
+
+.ambient-glow { position: fixed; left: 9%; top: -140px; width: 52%; height: 280px; background: var(--acid); filter: blur(160px); opacity: .03; pointer-events: none; z-index: -1; }
+
+.transport-panel {
+  min-height: 116px;
+  display: grid;
+  grid-template-columns: minmax(238px, 1.15fr) auto auto minmax(310px, .85fr) auto;
+  align-items: center;
+  gap: clamp(14px, 1.6vw, 32px);
+  max-width: 1780px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  border: 1px solid #3c4340;
+  border-radius: 5px;
+  box-shadow: 0 20px 50px #000a, inset 0 1px 0 #ffffff10, inset 0 -2px 0 #000;
+  background: linear-gradient(#292e2b, #171b19 48%, #111412 52%, #202421);
+}
+
+.transport-panel::after { content: ''; position: absolute; inset: 4px; pointer-events: none; border: 1px solid #0008; border-radius: 2px; }
+.product-mark { display: flex; flex-direction: column; line-height: 1; padding-left: 7px; }
+.product-mark > span { color: #7e8983; font: 600 10px/1 'Chakra Petch'; letter-spacing: .22em; }
+.product-mark strong { color: #f1f4eb; font: 800 clamp(27px, 2.3vw, 42px)/.95 'Chakra Petch'; letter-spacing: -.06em; text-shadow: 0 2px 0 #000; }
+.product-mark strong em { color: var(--acid); font-style: normal; font-weight: 500; }
+.product-mark small { margin-top: 7px; color: #88928c; letter-spacing: .13em; font: 600 9px 'Chakra Petch'; }
+
+.mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; min-width: 116px; }
+.mode-switch > span { grid-column: 1/-1; color: #79827c; font: 600 9px 'Chakra Petch'; letter-spacing: .14em; text-align: center; }
+.mode-switch button, .kit-toggle button {
+  padding: 8px 9px;
+  background: #090b0a;
+  color: #717a74;
+  border: 1px solid #000;
+  box-shadow: inset 0 1px 1px #ffffff10, 0 1px 0 #3f4541;
+  font: 700 11px 'Chakra Petch';
+}
+.mode-switch button.active, .kit-toggle button.active { color: #11150a; background: var(--acid); box-shadow: 0 0 13px #aaff2630, inset 0 1px 0 #efffc6; }
+
+.transport-controls { display: flex; gap: 5px; align-items: center; }
+.icon-button {
+  width: 42px; height: 42px; display: inline-grid; place-items: center; color: #8e9792;
+  background: linear-gradient(#252a27, #0d100f); border: 1px solid #050605; border-radius: 3px;
+  box-shadow: inset 0 1px 0 #ffffff14, 0 2px 2px #000a;
+  transition: .16s ease;
+}
+.icon-button svg { width: 17px; height: 17px; stroke-width: 2; }
+.icon-button:hover { color: white; border-color: #505853; transform: translateY(-1px); }
+.icon-button:active, .icon-button.active { transform: translateY(1px); color: var(--acid); background: #0d100d; box-shadow: inset 0 2px 5px #000, 0 0 16px #bdff3030; }
+.icon-button.danger.active { color: var(--red); box-shadow: inset 0 2px 5px #000, 0 0 14px #ff4d3638; }
+.record-dot { display: block; width: 12px; height: 12px; border-radius: 50%; background: #702218; box-shadow: inset 0 1px 1px #ff967f44; }
+.icon-button.danger.active .record-dot { background: #ff4f36; box-shadow: 0 0 12px #ff3c25; }
+
+.digital-cluster { display: flex; align-items: center; gap: 7px; min-width: 310px; }
+.digital-readout {
+  min-width: 68px; height: 54px; padding: 6px 8px; display: grid; grid-template-columns: 1fr auto; align-items: end;
+  background: #070907; border: 1px solid #000; border-radius: 2px; box-shadow: inset 0 0 12px #000, 0 1px 0 #434944;
+}
+.digital-readout span { grid-column: 1/-1; color: #687069; font: 8px 'Chakra Petch'; letter-spacing: .18em; }
+.digital-readout strong { color: var(--acid); font: 400 24px/.9 'Share Tech Mono'; text-shadow: 0 0 9px #9dff37a8; }
+.digital-readout small { color: #737b75; font: 9px 'Chakra Petch'; }
+.digital-readout.tempo { min-width: 104px; }
+.tempo-buttons { display: grid; gap: 3px; }
+.tempo-buttons button { width: 22px; height: 24px; border-radius: 2px; color: #9ca49f; background: #101311; border: 1px solid #000; box-shadow: inset 0 1px #ffffff10; }
+.global-actions { display: flex; gap: 5px; }
+.global-actions .icon-button { width: 36px; height: 36px; }
+
+.status-rail { max-width: 1760px; margin: 9px auto 12px; display: flex; gap: 22px; align-items: center; color: #56605a; font: 600 9px 'Chakra Petch'; letter-spacing: .13em; }
+.status-light { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 8px var(--acid); }
+.status-tip { margin-left: auto; color: #4e554f; }
+.computer-keyboard { max-width: 1780px; min-height: 92px; margin: 0 auto 12px; display: grid; grid-template-columns: 190px 360px minmax(520px,1fr) 116px; align-items: stretch; gap: 10px; padding: 9px 12px; overflow: hidden; color: #dce5df; background: repeating-linear-gradient(90deg,transparent 0 5px,#ffffff04 6px),linear-gradient(115deg,#171c19,#090c0a 58%,#202721); border: 1px solid #3d4841; box-shadow: 0 8px 18px #0008,inset 0 1px #536058; }
+.keyboard-heading { display: flex; align-items: center; gap: 9px; border-right: 1px solid #354038; }.keyboard-heading>svg { width: 24px; color: var(--acid); }.keyboard-heading div { display: grid; }.keyboard-heading span { color: #68756d; font: 700 8px 'Chakra Petch'; letter-spacing: .15em; }.keyboard-heading strong { font: 800 15px 'Chakra Petch'; }.keyboard-heading .input-live { margin-left: auto; margin-right: 10px; padding: 4px 5px; color: #162005; background: var(--acid); font: 800 8px 'Chakra Petch'; font-style: normal; box-shadow: 0 0 8px #baff3044; }
+.keyboard-targets { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; }.keyboard-targets button { min-height: 31px; color: #7d8881; background: #151a17; border: 1px solid #050605; box-shadow: inset 0 1px #3e4741; font: 800 9px 'Chakra Petch'; }.keyboard-targets button.active { color: #172005; background: var(--acid); border-color: #d9ff79; box-shadow: 0 0 8px #baff3044; }
+.keyboard-map { min-width: 0; display: grid; align-content: center; gap: 4px; overflow-x: auto; scrollbar-width: thin; }.key-map-row { min-width: max-content; display: flex; gap: 3px; }.key-map-row>span { width: 42px; height: 30px; display: grid; grid-template-columns: 18px 1fr; align-items: center; padding: 2px 4px; color: #77837b; background: #111512; border: 1px solid #303a33; box-shadow: inset 0 1px #465048; transition: transform .06s,background .06s,color .06s; }.key-map-row>span.pressed { color: #172005; background: var(--acid); transform: translateY(2px); box-shadow: 0 0 9px #baff3066; }.key-map-row kbd { color: inherit; font: 800 10px 'Chakra Petch'; }.key-map-row small { overflow: hidden; text-overflow: ellipsis; color: inherit; font: 8px 'Share Tech Mono'; white-space: nowrap; }.keyboard-map.trigger .key-map-row>span { width: 55px; }
+.octave-control { display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; gap: 3px; }.octave-control button { height: 34px; color: #172005; background: var(--acid); border: 1px solid #809e28; font: 800 17px 'Chakra Petch'; }.octave-control button:disabled { color: #555f58; background: #171c19; border-color: #303832; }.octave-control span { text-align: center; color: #bac5bd; font: 10px 'Share Tech Mono'; }.octave-control small { grid-column: 1/-1; color: #657169; font: 7px 'Chakra Petch'; text-align: center; letter-spacing: .08em; }
+
+.workspace-grid { max-width: 1780px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: stretch; }
+.song-strip { max-width: 1780px; min-height: 168px; margin: 0 auto 12px; padding: 11px 14px; display: grid; grid-template-columns: 230px minmax(0,1fr) 140px; gap: 12px; align-items: stretch; color: #dce3de; background: linear-gradient(110deg, #1c211e, #0d100f 55%, #242923); border: 1px solid #414844; border-radius: 4px; box-shadow: 0 12px 26px #0008, inset 0 1px #ffffff10; }
+.song-title { display: grid; align-content: center; gap: 3px; padding: 0 8px; border-left: 3px solid var(--acid); }.song-title > span { color: var(--acid); font: 700 8px 'Chakra Petch'; letter-spacing: .16em; }.song-title > strong { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 16px 'Chakra Petch'; }.song-title > small { color: #69736d; font: 600 7px 'Chakra Petch'; }.song-title small b { color: var(--amber); font: 12px 'Share Tech Mono'; }.scene-name-editor { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px; margin-top: 5px; }.scene-name-editor span { color: #6f7a73; font: 700 8px 'Chakra Petch'; }.scene-name-editor input { min-width: 0; padding: 5px 6px; color: var(--acid); background: #070a08; border: 1px solid #354038; font: 11px 'Share Tech Mono'; }.scene-marker-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }.scene-marker-actions button { min-height: 25px; padding: 3px; color: #89958e; background: #151a17; border: 1px solid #343c37; font: 700 7px 'Chakra Petch'; }.scene-marker-actions button:disabled { opacity: .28; }
+.song-arranger { min-width: 0; display: grid; grid-template-rows: 42px 1fr; gap: 7px; }.section-launchers { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; }.section-launchers button { min-width: 108px; flex: 1 0 108px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 5px; padding: 4px 7px; color: #7d8881; background: #151917; border: 1px solid #343a36; }.section-launchers button small { color: var(--acid); font: 9px 'Share Tech Mono'; }.section-launchers button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 9px 'Chakra Petch'; }.section-launchers button span { color: #58615b; font: 8px 'Share Tech Mono'; }.section-launchers button.active { color: #172005; background: var(--acid); border-color: #d9ff79; }.section-launchers button.active small,.section-launchers button.active span { color: #27350c; }
+.song-bars { min-width: 0; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-color: #5e7031 #080a09; scrollbar-width: thin; padding-bottom: 5px; }.song-phrase { min-width: 490px; position: relative; display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; padding-top: 16px; scroll-snap-align: start; border-left: 2px solid #4b554f; }.phrase-label { position: absolute; top: 0; left: 5px; color: #626d66; font: 700 8px 'Chakra Petch'; letter-spacing: .12em; }.song-bar { min-height: 52px; display: grid; place-items: center; align-content: center; padding: 3px; color: #69736d; background: #111412; border: 1px solid #050605; box-shadow: inset 0 1px #303632; }.song-bar > span { color: #77837b; font: 700 9px 'Chakra Petch'; letter-spacing: .08em; }.song-bar strong { color: #b8c1bb; font: 11px 'Share Tech Mono'; }.song-bar small { color: #5f6963; font: 9px 'Share Tech Mono'; }.song-bar.active { color: #1b220d; background: var(--acid); box-shadow: 0 0 10px #baff303d, inset 0 1px #efffba; }.song-bar.active span,.song-bar.active strong,.song-bar.active small { color: #1b220d; }
+.arrangement-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }.arrangement-actions > button { min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px; color: #8f9993; background: #151917; border: 1px solid #050605; box-shadow: inset 0 1px #3b423e; font: 800 9px 'Chakra Petch'; }.arrangement-actions > button svg { width: 12px; }.arrangement-actions > button:disabled { opacity: .3; }.arrangement-actions .capture-button { grid-column: 1/-1; min-height: 46px; display: grid; color: #171d0b; background: var(--acid); border: 1px solid #dfff83; box-shadow: inset 0 1px white, 0 2px 0 #4f700b; }.capture-button span { font-size: 8px; opacity: .7; }
+.machines-column { display: grid; gap: 12px; }
+.machine { position: relative; overflow: hidden; }
+.bass-machine {
+  min-height: 350px;
+  display: grid;
+  grid-template-columns: 195px minmax(395px, .95fr) minmax(0, 1.4fr);
+  grid-template-rows: 74px 1fr;
+  color: #191c19;
+  border: 1px solid #dbdbce;
+  border-radius: 6px 4px 4px 6px;
+  box-shadow: 0 16px 28px #0008, inset 0 1px #fff;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(15,17,15,.018) 4px),
+    linear-gradient(118deg, #d2d1c4, #b8b8ad 42%, #d1d0c3 67%, #a8aaa0);
+}
+.bass-machine.unit-2 { background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(15,17,15,.018) 4px), linear-gradient(118deg, #b8b9b1, #d0d0c6 48%, #aaaDa6); }
+.bass-machine::after, .drum-machine::after { content: ''; pointer-events: none; position: absolute; inset: 0; box-shadow: inset 0 0 35px #0002; }
+.screw { position: absolute; z-index: 3; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f7f7ed, #777a72 55%, #3f413e); box-shadow: 0 1px 2px #0008; }
+.screw::after { content: ''; position: absolute; left: 2px; right: 2px; top: 4px; height: 1px; background: #373937; transform: rotate(-18deg); }
+.screw:nth-child(1) { top: 9px; left: 9px; }.screw:nth-child(2) { top: 9px; right: 9px; }.screw:nth-child(3) { bottom: 9px; left: 9px; }.screw:nth-child(4) { bottom: 9px; right: 9px; }
+.screw.dark { background: radial-gradient(circle at 35% 30%, #89908b, #333735 50%, #050605); }
+
+.machine-header { grid-column: 1/-1; display: flex; align-items: center; gap: 14px; margin: 0 29px; border-bottom: 2px solid #20251f; }
+.brand-block { width: 65px; height: 47px; padding: 4px 6px; display: flex; flex-direction: column; color: #e3e8de; background: #1b211d; transform: skew(-5deg); box-shadow: 3px 3px 0 #73786f; }
+.brand-block span { color: var(--acid); font: 700 9px 'Chakra Petch'; letter-spacing: .2em; }
+.brand-block strong { font: 800 29px/.9 'Chakra Petch'; letter-spacing: -.1em; }
+.machine-header h2, .drum-header h2 { margin: 0; font: 800 22px/.92 'Chakra Petch'; letter-spacing: -.04em; }
+.machine-header h2 em { color: #6a740f; font-style: normal; }
+.eyebrow { margin: 0 0 3px; font: 700 8px 'Chakra Petch'; letter-spacing: .2em; }
+.machine-header small, .drum-header small { font: 600 8px 'Chakra Petch'; letter-spacing: .17em; }
+.voice-state { margin-left: auto; display: flex; align-items: center; gap: 7px; font: 700 9px 'Chakra Petch'; letter-spacing: .1em; }
+.voice-state i { width: 7px; height: 7px; border-radius: 50%; background: #4d504a; box-shadow: inset 0 1px 2px #000; }
+.voice-state i.lit { background: #a5e926; box-shadow: 0 0 8px #81c711; }
+.machine-actions, .drum-header-actions { margin-left: auto; display: flex; align-items: center; gap: 9px; }.routing-label { color: #5f675f; font: 700 8px 'Chakra Petch'; letter-spacing: .13em; }.drum-header-actions .routing-label { color: #68726c; }.pattern-chip { min-width: 42px; padding: 8px 7px; color: #172005; background: var(--acid); border: 1px solid #839f2a; font: 800 12px 'Chakra Petch'; text-align: center; box-shadow: 0 0 8px #baff3044; }.drum-header-actions .pattern-chip { color: #1a1408; background: var(--amber); border-color: #895b18; box-shadow: 0 0 8px #ffad3244; }
+.machine-reset-actions { display:flex; align-items:center; gap:3px; }.machine-reset-actions button { min-height:27px; padding:4px 7px; color:#a9b2ac; background:#171b19; border:1px solid #080a09; box-shadow:inset 0 1px #4a514c,0 2px #080a09; font:800 8px 'Chakra Petch'; letter-spacing:.04em; }.machine-reset-actions button:first-child { color:#ffc0b7; border-color:#71332e; }.machine-reset-actions button:hover { color:#172005; background:var(--acid); border-color:#8bad27; }.machine-reset-actions button:first-child:hover { color:white; background:#a93329; border-color:#df685c; }
+
+.bass-topline { padding: 16px 16px 15px 28px; border-right: 1px solid #7d817a; display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px; }
+.pattern-selector { min-width: 190px; }
+.micro-title { display: block; margin-bottom: 6px; font: 700 8px 'Chakra Petch'; letter-spacing: .17em; color: #4f544e; }
+.pattern-row { display: grid; gap: 3px; }
+.pattern-row.banks { grid-template-columns: repeat(4, 1fr); margin-bottom: 4px; }
+.pattern-row.numbers { grid-template-columns: repeat(8, 1fr); }
+.pattern-row button { height: 27px; padding: 0; color: #63675f; background: linear-gradient(#dddcd0, #92958d); border: 1px solid #73766f; border-radius: 1px; box-shadow: inset 0 1px #fff, 0 1px 1px #0005; font: 800 10px 'Chakra Petch'; }
+.pattern-row button.selected { color: #182000; background: var(--acid); border-color: #7e9d24; box-shadow: inset 0 1px #f1ffb8, 0 0 8px #b4f72d88; }
+.oscillator-block { grid-column: 1/-1; }
+.osc-source-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-bottom: 4px; }.osc-source-switch button { min-height: 25px; color: #656a63; background: #a5a79e; border: 1px solid #7c8077; font: 800 8px 'Chakra Petch'; }.osc-source-switch button.selected { color: #172005; background: var(--acid); border-color: #788f2b; }
+.designer-source-readout { min-height: 31px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; color: #dffbf7; background: #122524; border: 1px solid #38615d; box-shadow: inset 0 0 8px #0008; }.designer-source-readout strong { font: 800 10px 'Chakra Petch'; }.designer-source-readout span { color: var(--aqua); font: 8px 'Share Tech Mono'; }
+.wave-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.wave-switch button { height: 31px; color: #555a54; background: #a8aaa1; border: 1px solid #7d8078; box-shadow: inset 0 1px #e9e9df; font: 700 9px 'Chakra Petch'; }
+.wave-switch button.selected { color: #e8eee5; background: #222722; box-shadow: inset 0 0 7px #000, 0 1px #fff; }
+.wave-icon { display: inline-block; width: 20px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+.wave-icon.saw { background: linear-gradient(145deg, transparent 45%, currentColor 47% 51%, transparent 53%), linear-gradient(90deg, transparent 47%, currentColor 48% 52%, transparent 53%); }
+.wave-icon.square { background: linear-gradient(90deg, currentColor 0 8%, transparent 8% 48%, currentColor 48% 56%, transparent 56% 92%, currentColor 92%), linear-gradient(0deg, transparent 0 42%, currentColor 42% 52%, transparent 52%); }
+.synth-controls { padding: 20px clamp(12px, 1.5vw, 28px); display: grid; grid-template-columns: repeat(5, minmax(70px, 1fr)); gap: clamp(7px, 1vw, 18px); align-content: center; border-right: 1px solid #777b75; }
+.mini-effects { grid-column: 1/-1; display: grid; grid-template-columns: repeat(2, minmax(64px, 82px)); justify-content: center; gap: 18px; border-top: 1px solid #898d85; padding-top: 12px; }
+.knob-control { min-width: 57px; display: grid; justify-items: center; align-content: center; position: relative; }
+.knob { --angle: 0deg; display: block; width: 66px; height: 66px; padding: 6px; border-radius: 50%; position: relative; touch-action: none; cursor: ns-resize; user-select: none; background: conic-gradient(from 225deg, #343833, #c4c6bd 25%, #3e423d 48%, #d6d6cd 69%, #2b2e2b); box-shadow: 0 4px 7px #0007, inset 0 1px 1px #fff; }
+.knob::before { content: ''; position: absolute; inset: -6px; z-index: -1; border-radius: 50%; background: repeating-conic-gradient(from -135deg, #373b37 0 1deg, transparent 1deg 27deg); mask: radial-gradient(circle, transparent 0 60%, #000 61% 67%, transparent 68%); }
+.knob-cap { display: block; width: 100%; height: 100%; position: relative; border-radius: 50%; background: radial-gradient(circle at 33% 26%, #3d423e, #111412 57%, #050605 100%); box-shadow: inset 0 2px 2px #ffffff20, inset 0 -3px 4px #000; transform: rotate(var(--angle)); }
+.knob-cap i { position: absolute; top: 5px; left: calc(50% - 1px); width: 2px; height: 18px; background: var(--acid); border-radius: 2px; box-shadow: 0 0 4px var(--acid); }
+.knob-amber .knob-cap i { background: var(--amber); box-shadow: 0 0 4px var(--amber); }.knob-silver .knob-cap i { background: #dbe0d9; box-shadow: none; }
+.knob input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.control-label { margin-top: 7px; color: #242824; font: 800 9px 'Chakra Petch'; letter-spacing: .07em; }
+.knob-control output { color: #5d625b; font: 700 8px 'Share Tech Mono'; }
+.knob-control.compact .knob { width: 45px; height: 45px; padding: 5px; }
+.knob-control.compact .knob-cap i { top: 4px; height: 12px; }
+.knob-control.compact .control-label { margin-top: 4px; font-size: 7px; }
+.knob-control.compact output { font-size: 7px; }
+.transport-panel .knob-control .control-label, .transport-panel .knob-control output, .master-rack .knob-control .control-label, .master-rack .knob-control output { color: #929d97; }
+
+.sequencer-wrap { min-width: 0; padding: 14px 26px 15px 16px; display: grid; align-content: center; }
+.step-labels { display: grid; grid-template-columns: repeat(16, 1fr); padding: 0 2px 3px; color: #73776f; font: 700 7px 'Chakra Petch'; text-align: center; }
+.bass-steps { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+.bass-steps button { height: 58px; position: relative; padding: 8px 1px 3px; color: #535750; border: 1px solid #777b74; border-radius: 2px; background: linear-gradient(#d9d8cd, #999c93); box-shadow: inset 0 1px #fff, 0 2px 2px #0005; }
+.bass-steps button:nth-child(4n+1) { margin-left: 4px; }
+.bass-steps button:first-child { margin-left: 0; }
+.bass-steps button strong { font: 800 13px 'Chakra Petch'; }.bass-steps button small { font: 700 8px 'Share Tech Mono'; }.bass-steps button.on { color: #efffd2; background: linear-gradient(#40473c, #1b201b); border-color: #151815; box-shadow: inset 0 1px #6b7367, 0 2px 2px #0007; }
+.bass-steps button.editing { outline: 2px solid #3f4841; outline-offset: 1px; }.bass-steps button.playing { outline-color: var(--acid); background: #252c20; }.bass-steps button.playing .step-led { background: white; box-shadow: 0 0 10px var(--acid); }
+.step-led { position: absolute; top: 5px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: #5f625d; box-shadow: inset 0 1px 1px #000; }
+.bass-steps button.on .step-led { background: var(--acid); box-shadow: 0 0 5px var(--acid); }
+.step-flags { position: absolute; bottom: 3px; left: 0; right: 0; color: #889281; font: 700 7px 'Chakra Petch'; letter-spacing: .1em; }
+.bass-steps button.accent .step-flags { color: var(--amber); }.bass-steps button.slide .step-flags { text-decoration: underline; }
+.step-editor { min-width: 0; display: grid; grid-template-columns: 64px minmax(190px, 1fr) repeat(5, minmax(34px, 44px)); gap: 4px; align-items: stretch; margin-top: 10px; }
+.step-readout { display: grid; padding: 5px 8px; color: #60665e; background: #20251f; border: 1px solid #101310; }
+.step-readout span { font: 700 7px 'Chakra Petch'; letter-spacing: .1em; }.step-readout strong { color: var(--acid); font: 20px 'Share Tech Mono'; text-shadow: 0 0 6px #b4ff35; }
+.piano-keyboard-control { min-width:0; display:grid; grid-template-columns:24px minmax(0,1fr) 24px; gap:3px; align-items:stretch; }.piano-octave-button { min-width:0; padding:0; color:#182005; background:linear-gradient(#d8ff70,#9bd719); border:1px solid #769b1d; border-radius:2px; box-shadow:inset 0 1px #f3ffc9,0 2px #496709; font:800 16px 'Chakra Petch'; }.piano-octave-button:active { transform:translateY(1px); box-shadow:inset 0 2px 4px #48610e; }.piano-octave-button:disabled { color:#70766f; background:#a9aaa2; border-color:#777a74; box-shadow:inset 0 1px #d8d8d1; }.piano-keyboard { height:54px; position:relative; isolation:isolate; overflow:hidden; border:1px solid #171a17; border-radius:2px; background:#111; box-shadow:inset 0 2px 5px #0008,0 1px #f7f7ea; }.white-keys { position:absolute; inset:0; display:grid; grid-template-columns:repeat(8,1fr); gap:1px; }.piano-keyboard button { position:relative; min-width:0; padding:0; border:0; }.white-key { color:#4e524c; background:linear-gradient(90deg,#b8b9b0,#f2f1e8 18%,#d3d3c8 82%,#a5a79f); box-shadow:inset 0 -5px 6px #7774,inset 0 1px white; }.white-key span { position:absolute; inset:auto 0 3px; font:700 8px 'Chakra Petch'; }.black-keys { position:absolute; inset:0; pointer-events:none; }.black-key { --key-left:0%; width:8%; height:62%; position:absolute!important; left:var(--key-left); z-index:2; transform:translateX(-50%); pointer-events:auto; color:#dfe4df; background:linear-gradient(90deg,#101211,#393d39 45%,#090a09); border:1px solid #020302!important; border-radius:0 0 2px 2px; box-shadow:inset 0 -3px #080a09,0 4px 4px #0008; }.black-key span { display:none; }.piano-keyboard button.selected { color:#172000; background:linear-gradient(#e7ff9b,var(--acid)); box-shadow:0 0 12px #baff2b99,inset 0 -3px #668e0e; }.piano-octave-readout { position:absolute; z-index:4; top:2px; right:3px; padding:2px 4px; pointer-events:none; color:#141b08; background:#baff30cc; border-radius:2px; font:800 7px 'Chakra Petch'; letter-spacing:.04em; }
+.function-key { color: #51554f; background: #bfc0b6; border: 1px solid #81847d; box-shadow: inset 0 1px #fff, 0 1px 1px #0005; font: 800 8px 'Chakra Petch'; letter-spacing: .03em; }
+.function-key.active { color: #10140d; background: var(--acid); box-shadow: inset 0 1px #efffbf, 0 0 7px #b9ff36; }.function-key.amber.active { background: var(--amber); box-shadow: 0 0 7px #ffad32; }.function-key.aqua.active { background: var(--aqua); box-shadow: 0 0 7px #45e8d1; }.function-key.clear { color: #76382e; }
+
+.wave-designer { min-height: 354px; position: relative; display: grid; grid-template-columns: minmax(500px,.92fr) minmax(0,1.25fr); grid-template-rows: 70px auto 1fr; overflow: hidden; color: #e1e8e8; border: 1px solid #3b4b4c; border-radius: 4px; background: radial-gradient(circle at 12% 50%, #1d3938 0, transparent 30%), repeating-linear-gradient(90deg, transparent 0 5px, #ffffff05 6px), linear-gradient(118deg,#172322,#0a1011 55%,#1b292a); box-shadow: 0 16px 30px #000a,inset 0 1px #5a6968; }
+.wave-designer-header { grid-column: 1/-1; display: flex; align-items: center; gap: 13px; margin: 0 28px; border-bottom: 1px solid #405151; }.wave-designer-header h2 { margin: 0; color: #eef5f3; font: 800 22px/.95 'Chakra Petch'; }.wave-designer-header small { color: #6d8584; font: 700 8px 'Chakra Petch'; letter-spacing: .16em; }.wave-mark { width: 62px; height: 44px; display: flex; align-items: center; justify-content: center; gap: 4px; color: #071313; background: var(--aqua); clip-path: polygon(8% 0,100% 0,92% 100%,0 100%); box-shadow: 4px 3px 0 #234e4b; }.wave-mark svg { width: 19px; }.wave-mark span { font: 800 19px 'Chakra Petch'; }.wave-designer-header > label { margin-left: auto; display: grid; gap: 3px; }.wave-designer-header > label span { color: #718685; font: 700 8px 'Chakra Petch'; letter-spacing: .13em; }.wave-designer-header > label input { width: 180px; padding: 7px 9px; color: var(--aqua); background: #050b0b; border: 1px solid #304544; font: 12px 'Share Tech Mono'; }
+.designer-transfer { grid-column: 1/-1; display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-height: 37px; padding: 4px 28px; color: #718684; background: #081110aa; border-bottom: 1px solid #263a39; }.designer-transfer>span { margin-right: 5px; font: 700 8px 'Chakra Petch'; letter-spacing: .13em; }.designer-transfer button { min-height: 27px; padding: 0 10px; color: #08201d; background: var(--aqua); border: 1px solid #9affef; box-shadow: 0 0 8px #45e8d133; font: 800 8px 'Chakra Petch'; }.designer-transfer small { margin-left: 5px; color: #516866; font: 8px 'Share Tech Mono'; }
+.wave-designer-controls { display: grid; grid-template-columns: repeat(7,minmax(58px,1fr)); align-items: center; gap: 8px; padding: 15px 18px 18px 28px; border-right: 1px solid #344343; }.wave-designer-controls .control-label,.wave-designer-controls output { color: #91a4a2; }.designer-waveforms { grid-column: 1/-1; display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; }.designer-waveforms .micro-title { grid-column: 1/-1; color: #76918f; }.designer-waveforms button { min-height: 31px; color: #829391; background: #0c1515; border: 1px solid #314140; box-shadow: inset 0 1px #ffffff0d; font: 700 9px 'Chakra Petch'; }.designer-waveforms button.active { color: #071312; background: var(--aqua); border-color: #9efff1; box-shadow: 0 0 12px #45e8d144; }
+.designer-sequencer { min-width: 0; display: grid; align-content: center; gap: 10px; padding: 14px 27px 18px 17px; }.designer-steps { display: grid; grid-template-columns: repeat(16,1fr); gap: 3px; }.designer-steps button { min-width: 0; height: 54px; display: grid; place-items: center; align-content: center; color: #5e706f; background: #101919; border: 1px solid #30403f; box-shadow: inset 0 1px #53605f; }.designer-steps small { font: 7px 'Share Tech Mono'; }.designer-steps strong { font: 10px 'Chakra Petch'; }.designer-steps button.editing { border-color: var(--aqua); }.designer-steps button.on { color: #071312; background: var(--aqua); box-shadow: inset 0 1px #d1fff8,0 0 8px #45e8d144; }.designer-steps button.accent { background: var(--amber); }.designer-steps button.playing { outline: 2px solid white; outline-offset: -3px; }.designer-editor { display: grid; grid-template-columns: 64px minmax(190px,1fr) repeat(3,minmax(40px,50px)); gap: 4px; }.wave-designer .step-readout { color: var(--aqua); background: #061010; border-color: #253d3b; }
+
+.drum-machine { min-height: 318px; color: #e5e9e4; border: 1px solid #393e3b; border-radius: 4px; background: repeating-linear-gradient(90deg, transparent 0 5px, #ffffff05 6px), linear-gradient(112deg, #252a27, #131716 48%, #272b29); box-shadow: 0 16px 30px #000a, inset 0 1px #4b514d; }
+.drum-header { height: 69px; display: flex; align-items: center; gap: 15px; margin: 0 29px; border-bottom: 2px solid #8b918c; }
+.brand-block.dark { background: #dadbd0; color: #171b18; box-shadow: 3px 3px 0 #060706; }.brand-block.dark span { color: #856913; }
+.drum-header .eyebrow, .drum-header small { color: #8e9892; }.kit-toggle { margin-left: auto; display: flex; gap: 3px; }.kit-toggle button.active { color: #18140b; background: var(--amber); box-shadow: 0 0 11px #ffad3240, inset 0 1px #ffe0a8; }
+.kit-badge { margin-left: auto; display: grid; padding: 8px 11px; text-align: right; border-right: 2px solid var(--amber); }.kit-badge span { color: var(--amber); font: 700 8px 'Chakra Petch'; letter-spacing: .16em; }.kit-badge strong { color: #818b85; font: 600 8px 'Chakra Petch'; letter-spacing: .08em; }
+.drum-808 .kit-badge { border-color: var(--red); }.drum-808 .kit-badge span, .drum-808 .drum-step-info strong { color: var(--red); }.drum-808 .drum-voices button.selected { border-color: #8a3829; background: linear-gradient(#49302b, #211413); }.drum-808 .drum-voices button.selected i, .drum-808 .drum-step-bank button.on i { background: var(--red); box-shadow: 0 0 8px var(--red); }.drum-808 .pattern-row button.selected { background: var(--red); color: white; border-color: #7b2f23; box-shadow: inset 0 1px #ffb09f, 0 0 8px #ff5a4277; }
+.drum-layout { display: grid; grid-template-columns: 190px minmax(470px, 1fr) minmax(340px, .72fr); gap: 14px; padding: 15px 29px 12px; align-items: center; }.drum-machine .micro-title { color: #7e8882; }.drum-machine .pattern-row button { color: #929992; background: linear-gradient(#333936, #191c1a); border-color: #090a09; box-shadow: inset 0 1px #4e554f; }.drum-machine .pattern-row button.selected { color: #181309; background: var(--amber); border-color: #815819; box-shadow: inset 0 1px #ffddb1, 0 0 8px #ffad3288; }
+.drum-voices { display: grid; grid-template-columns: repeat(10, minmax(46px, 1fr)); gap: 5px; }.drum-voices button { min-height: 67px; display: grid; place-items: center; color: #8b938e; background: linear-gradient(#313633, #151817); border: 1px solid #080a09; box-shadow: inset 0 1px #535a56, 0 2px 2px #000; font: 800 13px 'Chakra Petch'; }.drum-voices button i { width: 6px; height: 6px; border-radius: 50%; background: #333936; box-shadow: inset 0 1px #000; }.drum-voices button span { font: 500 7px 'Chakra Petch'; text-transform: uppercase; }.drum-voices button.selected { color: #fff4db; border-color: #8a601b; background: linear-gradient(#463a25, #221b11); }.drum-voices button.selected i { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
+.drum-params { display: grid; grid-template-columns: repeat(4, minmax(58px, 1fr)); gap: 8px; align-items: center; }.selected-drum-label { grid-column: span 2; display: grid; border-left: 3px solid var(--amber); padding-left: 10px; text-transform: uppercase; }.selected-drum-label span { color: #747d77; font: 700 10px 'Chakra Petch'; letter-spacing: .15em; }.selected-drum-label strong { font: 700 17px 'Chakra Petch'; }.voice-action { min-height: 36px; padding: 6px; color: #909994; background: #161917; border: 1px solid #080a09; box-shadow: inset 0 1px #404642; font: 700 10px 'Chakra Petch'; }.voice-action.active.mute { color: white; background: #9a3023; }.voice-action.active.solo { color: #1a160b; background: var(--amber); }
+.drum-sequencer { display: grid; grid-template-columns: 210px 1fr; gap: 18px; padding: 0 29px 20px; }.drum-step-info { display: grid; align-content: center; padding-left: 12px; border-left: 2px solid #464c48; }.drum-step-info span { color: #737d77; font: 700 8px 'Chakra Petch'; letter-spacing: .15em; }.drum-step-info strong { color: var(--amber); font: 700 22px 'Chakra Petch'; }.drum-step-info small { color: #68716b; font: 600 7px 'Chakra Petch'; }
+.drum-step-bank { display: grid; grid-template-columns: repeat(16, 1fr); gap: 5px; }.drum-step-bank button { height: 58px; position: relative; color: #6f7771; background: linear-gradient(#303532, #121514); border: 1px solid #060706; border-radius: 2px; box-shadow: inset 0 1px #49504c, 0 2px 2px #000; font: 700 8px 'Chakra Petch'; }.drum-step-bank button:nth-child(4n+1) { margin-left: 8px; }.drum-step-bank button:first-child { margin-left: 0; }.drum-step-bank button i { position: absolute; left: 8px; right: 8px; bottom: 8px; height: 7px; background: #2e342f; box-shadow: inset 0 1px #000; }.drum-step-bank button.on { color: #ffddb0; background: linear-gradient(#4c3d27, #1d1812); }.drum-step-bank button.on i { background: var(--amber); box-shadow: 0 0 8px #ff9f21; }.drum-step-bank button.accent i { background: #fff1cf; box-shadow: 0 0 11px var(--amber); }.drum-step-bank button.playing { outline: 1px solid #fff2ca; outline-offset: 1px; transform: translateY(1px); }
+
+.master-rack { position: relative; min-height: 100%; overflow: hidden; padding: 25px 18px; color: #d8ded9; border: 1px solid #383d3a; border-radius: 4px; background: repeating-linear-gradient(90deg, transparent 0 3px, #ffffff05 4px), linear-gradient(100deg, #202523, #0c0f0e 48%, #202422); box-shadow: 0 18px 40px #000c, inset 0 1px #4c524f; }.master-rack > header { display: flex; align-items: center; gap: 11px; padding: 0 8px 17px; border-bottom: 1px solid #3d4540; }.master-rack > header svg { color: var(--acid); }.master-rack > header div { display: grid; }.master-rack > header span { color: #6d7771; font: 600 8px 'Chakra Petch'; letter-spacing: .17em; }.master-rack > header strong { font: 700 19px 'Chakra Petch'; }
+.source-mixer { padding: 17px 0; border-bottom: 1px solid #353b37; }.channel-strips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 13px; }.channel-strip { min-width: 0; display: grid; justify-items: center; padding: 8px 3px; background: #0c0f0e; border: 1px solid #282e2a; box-shadow: inset 0 1px #ffffff08; }.channel-name { color: #abb5af; font: 700 10px 'Chakra Petch'; }.channel-led { width: 6px; height: 6px; margin: 5px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 5px var(--acid); }.channel-strip.muted .channel-led { background: #343a36; box-shadow: none; }.channel-strip.soloed .channel-led { background: var(--amber); box-shadow: 0 0 6px var(--amber); }.channel-fader { width: 88px; height: 18px; margin: 36px -20px; transform: rotate(-90deg); accent-color: var(--acid); }.channel-strip output { color: #a4aea8; font: 11px 'Share Tech Mono'; }.channel-send { width: 100%; display: grid; gap: 2px; margin-top: 5px; color: #7b857f; font: 700 9px 'Chakra Petch'; }.channel-send input { width: 100%; height: 12px; accent-color: var(--amber); }.channel-buttons { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 6px; }.channel-buttons button { min-height: 34px; color: #87918b; background: #171b19; border: 1px solid #303632; font: 800 11px 'Chakra Petch'; }.channel-buttons button.active.mute { color: white; background: #9a3023; }.channel-buttons button.active.solo { color: #181408; background: var(--amber); }
+.global-sound { margin: 15px 0; padding: 14px; color: #dce5de; background: linear-gradient(145deg, #19221b, #0c110e); border: 1px solid #50634a; box-shadow: inset 0 1px #8aa67c33; }
+.global-sound-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid #354a39; }
+.global-sound-heading strong { color: var(--acid); font: 800 12px 'Chakra Petch'; letter-spacing: .12em; }
+.global-sound-heading span, .global-sound p { color: #adbdb0; font: 10px/1.4 'Chakra Petch'; }
+.global-sound-switches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 10px 0; }
+.global-sound-switches button { min-height: 36px; padding: 4px; color: #d2dbd4; background: #26302a; border: 1px solid #5b6b5f; font: 800 9px 'Chakra Petch'; letter-spacing: .02em; }
+.global-sound-switches button.active { color: #172006; background: var(--acid); border-color: #d5ff83; }
+.global-sound-switches button:focus-visible, .global-sound input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.global-sound-sliders { display: grid; gap: 8px; }
+.global-sound-sliders label { display: grid; grid-template-columns: 108px minmax(0, 1fr) 28px; gap: 7px; align-items: center; color: #c0cec3; font: 700 9px 'Chakra Petch'; letter-spacing: .04em; }
+.global-sound-sliders input { min-width: 0; width: 100%; accent-color: var(--acid); }
+.global-sound-sliders output { color: #e0f2d2; text-align: right; font: 12px 'Share Tech Mono'; }
+.global-sound p { margin: 12px 0 0; }
+.channel-eq { width: 100%; display: grid; gap: 3px; margin: 4px 0 2px; }.channel-eq label { display: grid; grid-template-columns: 24px 1fr; align-items: center; color: #6f7973; font: 700 9px 'Chakra Petch'; }.channel-eq input { width: 100%; height: 10px; accent-color: var(--acid); }
+.scope { height: 83px; position: relative; margin: 18px 0; overflow: hidden; background: #050806; border: 1px solid #000; box-shadow: inset 0 0 18px #000, 0 1px #38403a; }.scope::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 17px, #a9ff2912 18px), repeating-linear-gradient(90deg, transparent 0 29px, #a9ff2912 30px); }.scope svg { width: 100%; height: 100%; filter: drop-shadow(0 0 4px var(--acid)); opacity: .24; }.scope path { fill: none; stroke: var(--acid); stroke-width: 1.5; vector-effect: non-scaling-stroke; }.scope.running svg { opacity: 1; }.scope span { position: absolute; bottom: 4px; right: 6px; color: #4f594f; font: 7px 'Chakra Petch'; letter-spacing: .14em; }
+@keyframes signal { to { transform: none; } }
+.rack-module { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; padding: 18px 0; border-top: 1px solid #050706; border-bottom: 1px solid #353b37; }.module-title { grid-column: 1/-1; display: flex; align-items: center; gap: 7px; color: #858f88; font: 700 9px 'Chakra Petch'; letter-spacing: .13em; }.module-title svg { width: 13px; color: var(--amber); }
+.gain-reduction { grid-column: 1/-1; display: flex; align-items: center; gap: 5px; padding: 0 16px; }.gain-reduction span { margin-right: auto; color: #626c65; font: 700 8px 'Chakra Petch'; }.gain-reduction i { width: 14px; height: 4px; background: #241815; }.gain-reduction i.lit { background: var(--red); box-shadow: 0 0 6px #ff4c34; }
+.rack-module.color-module { grid-template-columns: repeat(3, 1fr); }
+.quality-switch { margin-left:auto; min-height:24px; padding:3px 7px; color:#7f8983; background:#151a17; border:1px solid #343c37; font:800 8px 'Chakra Petch'; letter-spacing:.06em; }.quality-switch.active { color:#172005; background:var(--acid); border-color:#cfff69; box-shadow:0 0 8px #baff3044; }
+.rack-module.delay-module { grid-template-columns: repeat(3, 1fr); }
+.master-fader { display: grid; grid-template-columns: 42px 1fr; gap: 16px; padding: 21px 5px; }.meter { height: 160px; display: flex; flex-direction: column-reverse; gap: 2px; padding: 6px; background: #050706; border: 1px solid #000; }.meter i { flex: 1; background: #172018; }.meter i.lit { background: var(--acid); box-shadow: 0 0 4px var(--acid); }.meter i.warm { background: var(--amber); box-shadow: 0 0 4px var(--amber); }.meter i.hot { background: var(--red); box-shadow: 0 0 4px var(--red); }.master-fader label { display: grid; place-items: center; color: #8c9690; font: 700 9px 'Chakra Petch'; letter-spacing: .1em; }.master-fader input { width: 132px; transform: rotate(-90deg); accent-color: var(--acid); }.master-fader output { color: var(--acid); font: 17px 'Share Tech Mono'; }
+.export-button { width: 100%; min-height: 65px; display: grid; grid-template-columns: auto 1fr; align-items: center; justify-content: center; padding: 12px 16px; color: #172006; background: linear-gradient(#d8ff71, #9bd619); border: 1px solid #dfff8d; border-radius: 2px; box-shadow: 0 0 20px #baff2b20, inset 0 1px #f4ffd5, 0 3px 0 #42600a; font: 800 11px 'Chakra Petch'; letter-spacing: .05em; }.export-button svg { grid-row: 1/3; width: 19px; }.export-button span { font-size: 7px; opacity: .7; }.export-button:active { transform: translateY(2px); box-shadow: 0 0 20px #baff2b20, inset 0 1px #f4ffd5, 0 1px 0 #42600a; }
+.export-button:disabled { cursor: wait; filter: saturate(.55); animation: export-pulse 1.1s ease-in-out infinite alternate; }
+@keyframes export-pulse { to { box-shadow: 0 0 32px #baff2b55, inset 0 1px #f4ffd5, 0 3px 0 #42600a; } }
+.headphone-mark { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 21px; color: #4d5650; font: 600 7px 'Chakra Petch'; letter-spacing: .12em; }.headphone-mark svg { width: 15px; }
+
+footer { max-width: 1780px; display: flex; justify-content: space-between; margin: 12px auto 0; color: #414943; font: 600 8px 'Chakra Petch'; letter-spacing: .15em; }
+.popover { position: fixed; z-index: 50; top: 125px; right: clamp(14px, 3vw, 54px); width: min(350px, calc(100vw - 28px)); padding: 18px; border: 1px solid #4c554f; border-radius: 4px; color: #dfe5e0; background: linear-gradient(145deg, #202522f5, #0c0f0ef7); box-shadow: 0 24px 70px #000e, inset 0 1px #ffffff14; backdrop-filter: blur(12px); }.popover header { display: flex; align-items: start; justify-content: space-between; margin-bottom: 16px; padding-bottom: 13px; border-bottom: 1px solid #414943; }.popover header div { display: grid; }.popover header span { color: var(--acid); font: 600 8px 'Chakra Petch'; letter-spacing: .16em; }.popover header strong { font: 700 20px 'Chakra Petch'; }.popover header > button { color: #8d9791; background: transparent; font-size: 25px; }.projects-popover > button { width: 100%; display: flex; align-items: center; gap: 10px; margin: 6px 0; padding: 11px 13px; color: #bdc6c0; background: #171b19; border: 1px solid #353b37; font: 700 10px 'Chakra Petch'; }.projects-popover > button:hover { color: #171b0c; background: var(--acid); }.projects-popover > button svg { width: 15px; }.projects-popover > button.reset-action:hover { background: var(--red); color: white; }.projects-popover > small { display: block; margin-top: 12px; color: #5f6962; font: 8px 'Chakra Petch'; text-align: center; }.project-name { display: grid; gap: 4px; margin-bottom: 12px; }.project-name span { color: #6e7872; font: 700 8px 'Chakra Petch'; letter-spacing: .14em; }.project-name input { width: 100%; padding: 9px; color: var(--acid); background: #070a08; border: 1px solid #353c37; font: 15px 'Share Tech Mono'; }
+.help-popover { width:min(760px,calc(100vw - 28px)); max-height:calc(100vh - 155px); overflow:auto; }.help-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }.help-grid section { padding:11px 12px; background:#111613; border:1px solid #313a34; border-left:2px solid #5c7131; }.help-grid h3 { margin:0 0 5px; color:var(--acid); font:800 10px 'Chakra Petch'; letter-spacing:.1em; }.help-popover p { margin:0; color:#9da8a1; font-size:12px; line-height:1.45; }.help-popover b { color:#dce5df; }.help-popover kbd { padding:2px 5px; color:#13170e; background:var(--acid); border-radius:2px; font:10px 'Chakra Petch'; }.help-popover .browser-note { margin-top:10px; color:#647068; text-align:center; font-size:11px; }
+.saved-list { max-height: 165px; margin: 10px 0; overflow: auto; border: 1px solid #303732; background: #090c0a; }.saved-list > span { display: block; padding: 15px; color: #59635d; text-align: center; font: 700 8px 'Chakra Petch'; letter-spacing: .12em; }.saved-list > div { display: grid; grid-template-columns: 1fr 34px; border-bottom: 1px solid #242a26; }.saved-list > div.active { border-left: 2px solid var(--acid); }.saved-list button { min-width: 0; display: grid; padding: 8px 10px; color: #929c96; text-align: left; background: transparent; }.saved-list button:last-child { place-items: center; color: #6c756f; font-size: 17px; }.saved-list button:hover { color: var(--acid); background: #151a16; }.saved-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 10px 'Chakra Petch'; }.saved-list small { color: #4f5952; font: 7px 'Chakra Petch'; }
+.rack-nav { display: none; }
+
+.performance-deck { min-height: 330px; position: relative; display: grid; grid-template-columns: 240px minmax(360px, 1fr) 245px; grid-template-rows: 54px auto 68px; gap: 12px; padding: 0 28px 18px; color: #dce2dd; overflow: hidden; border: 1px solid #3a413d; border-radius: 4px; background: repeating-linear-gradient(90deg, transparent 0 4px, #ffffff04 5px), linear-gradient(110deg, #202522, #0b0e0d 55%, #242925); box-shadow: 0 16px 30px #000a, inset 0 1px #4b524e; }.performance-deck > header { grid-column: 1/-1; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #4a524d; }.performance-deck > header p { margin: 0; color: #909a94; font: 700 11px 'Chakra Petch'; letter-spacing: .12em; }.performance-deck > header > i { margin-left: auto; color: #5f6962; font: 600 10px 'Chakra Petch'; font-style: normal; }.deck-mark { display: flex; align-items: center; gap: 8px; }.deck-mark span { padding: 5px 7px; color: #141a08; background: var(--acid); font: 800 11px 'Chakra Petch'; }.deck-mark strong { font: 800 19px 'Chakra Petch'; }.deck-section-label { display: block; margin-bottom: 7px; color: #8b958f; font: 700 10px 'Chakra Petch'; letter-spacing: .13em; }
+.scene-bank { grid-column: 1; grid-row: 2/4; }.scene-bank { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; align-content: start; max-height: 260px; overflow-y: auto; }.scene-bank > span { grid-column: 1/-1; }.scene-bank button { min-height: 56px; display: grid; place-items: center; color: #818b84; background: #131715; border: 1px solid #050605; box-shadow: inset 0 1px #343a36, 0 2px 2px #000; }.scene-bank button:hover,.scene-bank button.active { color: #172006; background: var(--acid); }.scene-bank small { font: 9px 'Share Tech Mono'; }.scene-bank strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 10px 'Chakra Petch'; }.scene-tools { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:4px; padding-top:3px; border-top:1px solid #333b36; }.scene-tools p { grid-column:1/-1; margin:0 0 2px; color:#77827b; font:9px/1.3 'Chakra Petch'; }.scene-bank .scene-tools button { min-height:31px; padding:4px; color:#adb7b0; font:800 8px 'Chakra Petch'; }.scene-bank .scene-tools button:first-of-type { color:#172005; background:var(--acid); }.scene-bank .scene-tools button:disabled { opacity:.28; }
+.fx-pads { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }.fx-pads > span { grid-column: 1/-1; }.fx-pads button { min-height: 72px; position: relative; display: grid; place-items: center; align-content: center; color: #e6ece7; background: radial-gradient(circle at 50% 20%, #424a45, #161a18 58%); border: 1px solid #080a09; border-radius: 3px; box-shadow: inset 0 1px #626a65, 0 3px 0 #050605; }.fx-pads button:hover { color: var(--acid); border-color: #667b35; }.fx-pads button:active { transform: translateY(2px); box-shadow: inset 0 2px 6px #000, 0 1px 0 #050605; }.fx-pads button i { width: 7px; height: 7px; margin-bottom: 6px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 8px var(--acid); }.fx-pads button span { font: 800 10px 'Chakra Petch'; }.fx-pads button small { color: #68726b; font: 9px 'Share Tech Mono'; }
+.repeat-bank { grid-column: 3; grid-row: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }.repeat-bank > span { grid-column: 1/-1; }.repeat-bank > div { grid-column: 1/-1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }.repeat-bank > div button { min-height: 36px; color: #8f9993; background: #151917; border: 1px solid #050605; box-shadow: inset 0 1px #3b423e; font: 800 10px 'Chakra Petch'; }.repeat-bank > div button.active { color: #171306; background: var(--amber); box-shadow: 0 0 8px #ffad3255; }
+.crossfader-section { grid-column: 2/4; grid-row: 3; display: grid; grid-template-columns: 86px 1fr 86px; align-items: center; gap: 12px; }.crossfader-section > div { display: grid; color: #737d77; font: 700 9px 'Chakra Petch'; }.crossfader-section > div:last-child { text-align: right; }.crossfader-section > div strong { color: #dde4de; font-size: 14px; }.crossfader-section label { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; color: #939d97; font: 700 10px 'Chakra Petch'; }.crossfader-section input { width: 100%; accent-color: var(--acid); }.crossfader-section output { min-width: 56px; color: var(--acid); font: 12px 'Share Tech Mono'; text-align: right; }
+.toast { position: fixed; left: 50%; bottom: 25px; z-index: 80; display: flex; align-items: center; gap: 9px; padding: 11px 17px; transform: translateX(-50%); color: #e8f0e9; background: #121714ee; border: 1px solid #4b584d; box-shadow: 0 12px 40px #000c; font: 700 10px 'Chakra Petch'; letter-spacing: .12em; animation: toast-in .2s ease-out; }.toast i { width: 6px; height: 6px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 8px var(--acid); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* Operational type is intentionally larger than decorative chassis engraving. */
+.micro-title, .eyebrow, .machine-header small, .drum-header small, .song-title span, .song-title small { font-size: 10px; line-height: 1.25; }
+.control-label, .knob-control.compact .control-label { font-size: 10px; line-height: 1.2; }
+.knob-control output, .knob-control.compact output { min-height: 12px; font-size: 10px; line-height: 1.2; }
+.step-labels, .step-readout span, .note-keys sup, .drum-step-info span, .drum-step-info small, .drum-voices button span, .gain-reduction span, .channel-strip > button, .scope span { font-size: 10px; line-height: 1.15; }
+.pattern-row button, .wave-switch button, .function-key, .channel-name { font-size: 11px; }
+.bass-steps button small, .step-flags, .drum-step-bank button, .module-title, .channel-eq label, .master-fader label, .capture-button, .export-button span { font-size: 10px; line-height: 1.15; }
+.pattern-row button { min-height: 32px; }
+.wave-switch button { min-height: 38px; }
+.tempo-buttons button { width: 28px; height: 28px; font-size: 15px; }
+.global-actions .icon-button { width: 42px; height: 42px; }
+.view-mode-button { min-width: 68px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 5px; color: #8e9892; background: linear-gradient(#242a26, #111411); border: 1px solid #050605; border-radius: 3px; box-shadow: inset 0 1px #ffffff14, 0 2px 4px #0008; font: 800 10px 'Chakra Petch'; letter-spacing: .06em; }
+.view-mode-button svg { width: 16px; height: 16px; }
+.view-mode-button:hover, .view-mode-button.active { color: #152005; background: var(--acid); border-color: #cfff64; }
+.channel-strip > button { min-height: 32px; }
+
+.performance-view .bass-machine { min-height: 0; grid-template-columns: 1fr; grid-template-rows: 50px auto; }
+.performance-view .bass-machine .machine-header { min-height: 50px; padding-top: 4px; }
+.performance-view .machine-header .eyebrow, .performance-view .drum-header .eyebrow { display: none; }
+.performance-view .machine-reset-actions { display:none; }
+.performance-view .bass-machine .bass-topline, .performance-view .bass-machine .synth-controls { display: none; }
+.performance-view .bass-machine .sequencer-wrap { grid-column: 1; grid-row: 2; padding: 9px 27px 11px; }
+.performance-view .bass-machine .step-editor { display: none; }
+.performance-view .bass-steps button { height: 43px; }
+.performance-view .wave-designer { min-height: 0; grid-template-columns: 1fr; grid-template-rows: 50px auto; }
+.performance-view .wave-designer-header { min-height: 50px; margin-inline: 28px; }
+.performance-view .wave-designer-header .eyebrow,.performance-view .wave-designer-header > label,.performance-view .wave-designer-controls,.performance-view .designer-transfer,.performance-view .designer-editor { display: none; }
+.performance-view .designer-sequencer { padding: 9px 27px 12px; }
+.performance-view .designer-steps button { height: 43px; }
+.performance-view .drum-machine { min-height: 0; }
+.performance-view .drum-machine .drum-header { height: 50px; padding-top: 4px; }
+.performance-view .drum-machine .drum-layout { display: none; }
+.performance-view .drum-machine .drum-sequencer { padding: 9px 29px 13px; }
+.performance-view .drum-step-bank button { height: 43px; }
+.performance-view .workspace-grid { align-items: start; }
+.performance-view .song-strip { display: none; }
+.performance-view .machines-column { align-content: start; }
+.performance-view .master-rack { min-height: 0; }
+.performance-view .master-rack .source-mixer, .performance-view .master-rack .rack-module, .performance-view .master-rack .headphone-mark { display: none; }
+.performance-view .master-rack .master-fader { padding: 12px 5px; }
+.performance-view .master-rack .meter { height: 112px; }
+.performance-view .global-sound { margin: 10px 0; }
+.performance-view .performance-deck { min-height: 0; grid-template-columns: 180px minmax(420px, 1fr) 190px; grid-template-rows: 38px 104px 38px; gap: 6px 10px; padding: 0 14px 8px; }
+.performance-view .performance-deck > header { grid-column: 1/-1; grid-row: 1; padding-top: 3px; }
+.performance-view .performance-deck > header i { display: none; }.performance-view .performance-deck > header p { display:block; font-size:8px; letter-spacing:.08em; }
+.performance-view .scene-bank { grid-column: 1; grid-row: 2/4; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.performance-view .scene-bank > span, .performance-view .repeat-bank > span { display: none; }
+.performance-view .scene-bank button { min-height: 0; }
+.performance-view .scene-bank small, .performance-view .scene-bank strong { font-size: 8px; }
+.performance-view .scene-tools p { display:none; }.performance-view .scene-bank .scene-tools button { min-height:27px; font-size:7px; }
+.performance-view .fx-pads { grid-column: 2; grid-row: 2; }
+.performance-view .fx-pads > span { display: none; }
+.performance-view .fx-pads button { min-height: 46px; }
+.performance-view .repeat-bank { grid-column: 3; grid-row: 2; display: block; }
+.performance-view .repeat-bank > div { height: 100%; }
+.performance-view .repeat-bank > div button { min-height: 56px; }
+.performance-view .repeat-bank > .knob-control { display: none; }
+.performance-view .crossfader-section { grid-column: 2/4; grid-row: 3; grid-template-columns: 66px 1fr 66px; gap: 7px; }
+.performance-view .crossfader-section > div strong { font-size: 11px; }
+.performance-view .crossfader-section label { font-size: 9px; }
+.performance-view footer { display: none; }
+
+@media (max-width: 1500px) {
+  .transport-panel { grid-template-columns: 1fr auto auto 310px; }.global-actions { grid-column: 4; grid-row: 2; justify-self: end; margin-top: -17px; }.transport-panel { padding-bottom: 11px; }
+  .bass-machine { grid-template-columns: 190px minmax(365px, .9fr) minmax(0, 1.25fr); }.step-editor { grid-template-columns: 58px minmax(210px, 1fr) repeat(5, 42px); }.drum-layout { grid-template-columns: 180px minmax(450px, 1fr); }.drum-params { grid-column: 1/-1; grid-template-columns: 130px repeat(7, 68px); justify-content: center; }.drum-sequencer { grid-template-columns: 180px 1fr; }
+}
+
+@media (min-width: 1181px) and (max-width: 1500px) {
+  .performance-view .transport-panel { min-height: 96px; grid-template-columns: minmax(238px, 1.15fr) auto auto minmax(310px, .85fr) auto; padding-block: 8px; }
+  .performance-view .global-actions { grid-column: 5; grid-row: 1; margin: 0; }
+}
+
+@media (max-width: 1180px) {
+  .workstation-shell { padding: 10px; }.transport-panel { position: relative; top: 0; grid-template-columns: 1fr auto; }.mode-switch { grid-column: 1; grid-row: 2; width: 125px; }.transport-controls { justify-self: end; }.digital-cluster { grid-column: 1; grid-row: 3; }.global-actions { grid-column: 2; grid-row: 3; margin: 0; }
+  .computer-keyboard { min-width: 1040px; grid-template-columns: 170px 340px minmax(420px,1fr) 100px; }
+  .workspace-grid { display: block; overflow-x: auto; }.machines-column { min-width: 1040px; }.bass-machine { grid-template-columns: 205px 390px 1fr; }.master-rack { display: grid; grid-template-columns: 180px 210px 180px 160px 160px 150px 220px; gap: 16px; align-items: center; min-width: 1220px; min-height: auto; margin-top: 12px; padding: 22px; }.master-rack > header, .master-rack .source-mixer, .master-rack .scope, .master-rack .rack-module, .master-rack .master-fader, .master-rack .export-button { margin: 0; border: 0; padding: 0; }.master-rack .scope { height: 80px; }.master-rack .rack-module { padding: 0; }.master-rack .headphone-mark { display: none; }.master-fader { grid-template-columns: 32px 1fr!important; }.meter { height: 75px; }.master-fader input { width: 70px; }
+}
+
+@media (max-width: 680px) {
+  .product-mark small, .status-tip, .status-rail span:nth-child(n+2) { display: none; }
+  .product-mark strong { font-size: 25px; }
+  .transport-panel { grid-template-columns: 1fr; gap: 8px; }
+  .product-mark { grid-column: 1; grid-row: 1; }
+  .mode-switch { grid-column: 1; grid-row: 2; justify-self: stretch; width: 100%; }
+  .transport-controls { grid-column: 1; grid-row: 3; justify-self: start; }
+  .digital-cluster { grid-column: 1; grid-row: 4; min-width: 0; }
+  .global-actions { grid-column: 1; grid-row: 5; justify-self: start; }
+  .status-rail { padding-left: 5px; }
+  .status-rail::after { content: 'SWIPE RACK HORIZONTALLY'; margin-left: auto; color: #69736d; }
+  .computer-keyboard { min-width: 0; width: 100%; grid-template-columns: 1fr; gap: 7px; padding: 9px; }.keyboard-heading { min-height: 38px; border-right: 0; border-bottom: 1px solid #354038; }.keyboard-targets { grid-template-columns: repeat(7,68px); overflow-x: auto; }.keyboard-targets button { min-height: 44px; }.keyboard-map { overflow-x: auto; }.octave-control { grid-template-columns: 44px 1fr 44px; }.octave-control button { height: 44px; }
+  .song-strip { width: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px; overflow: hidden; }
+  .song-title { min-height: 58px; }
+  .song-bars { width: 100%; grid-template-columns: repeat(8, 96px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+  .song-bars button { min-height: 52px; scroll-snap-align: start; }
+  .capture-button { width: 100%; min-height: 48px; }
+  .machines-column { min-width: 1040px; }
+  .master-rack { min-width: 1220px; }
+  .mode-switch button, .transport-controls .icon-button, .global-actions .icon-button, .view-mode-button, .tempo-buttons button, .pattern-row button, .wave-switch button, .voice-action, .channel-buttons button { min-width: 44px; min-height: 44px; }
+  .tempo-buttons button { width: 44px; height: 44px; }
+  .bass-steps button, .drum-step-bank button { min-width: 44px; min-height: 52px; }
+  .deck-controls button, .deck-file-actions button, .sample-modes button, .sample-file-actions button { min-height: 44px; }
+  footer { display: none; }
+}
+
+@media (max-width: 680px) {
+  .rack-nav { position: sticky; top: 0; z-index: 35; display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin: 0 0 8px; padding: 5px; background: #101411eb; border: 1px solid #343c36; backdrop-filter: blur(10px); }
+  .rack-nav button { min-height: 44px; color: #9ba59f; background: #191e1b; border: 1px solid #303832; font: 800 10px 'Chakra Petch'; }
+  .rack-nav button:active { color: #172005; background: var(--acid); }
+}
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+
+/* Media performance bay: a dark broadcast console nested inside the silver/black rack language. */
+.media-bay { position:relative; overflow:hidden; padding:0 20px 20px; color:#dce3de; background:repeating-linear-gradient(90deg,transparent 0 3px,#fff3 4px),linear-gradient(135deg,#242925,#0b0e0d 55%,#242a26); border:1px solid #424a45; border-radius:4px; box-shadow:0 16px 34px #000a,inset 0 1px #59615c; }
+.media-bay-header { min-height:60px; display:flex; align-items:center; gap:11px; border-bottom:1px solid #4c544f; }.media-bay-header>svg{width:24px;color:var(--acid)}.media-bay-header div,.sampler-bay header div{display:grid}.media-bay-header span,.sampler-bay header span{color:#7b867f;font:700 9px 'Chakra Petch';letter-spacing:.16em}.media-bay-header strong{font:800 19px 'Chakra Petch'}.media-bay-header p,.sampler-bay header p{margin-left:auto;color:#606a64;font:700 9px 'Chakra Petch';letter-spacing:.1em}
+.twin-decks{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 0}.media-deck{min-width:0;display:grid;grid-template-columns:200px minmax(0,1fr);grid-template-rows:38px 130px 34px 50px 68px 35px;column-gap:14px;padding:11px 14px 14px;background:linear-gradient(115deg,#171b19,#090b0a 70%,#1b201d);border:1px solid #353c37;box-shadow:inset 0 1px #4d554f,0 5px 12px #0009}.media-deck>header{grid-column:1/-1;display:flex;align-items:center;gap:8px;border-bottom:1px solid #333a35}.media-deck>header span{padding:4px 6px;color:#172006;background:var(--acid);font:800 10px 'Chakra Petch'}.deck-b>header span{color:#1d1304;background:var(--amber)}.media-deck>header strong{max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 13px 'Chakra Petch'}.media-deck>header i{margin-left:auto;color:#59635d;font:8px 'Share Tech Mono';font-style:normal}
+.platter-zone{grid-column:1;grid-row:2/7;display:grid;grid-template-columns:1fr 34px;place-items:center;gap:5px}.turntable-platter{width:138px;height:138px;position:relative;display:grid;place-items:center;touch-action:none;cursor:grab;border-radius:50%;background:repeating-radial-gradient(circle,#252926 0 2px,#080a09 3px 5px);border:4px solid #494f4b;box-shadow:0 0 0 4px #050605,0 7px 15px #000,inset 0 0 0 2px #7c837e}.vinyl-grooves{width:56px;height:56px;display:grid;place-items:center;border-radius:50%;color:#111609;background:radial-gradient(circle,#dffe86 0 6px,var(--acid) 7px);box-shadow:0 0 0 2px #050605}.vinyl-grooves span{font:800 24px 'Chakra Petch'}.deck-b .vinyl-grooves{color:#1c1103;background:radial-gradient(circle,#ffe4a2 0 6px,var(--amber) 7px)}.media-deck.is-playing .vinyl-grooves{animation:platter-spin 1.8s linear infinite}.tone-arm{width:4px;height:66px;position:absolute;right:4px;top:-2px;transform:rotate(18deg);transform-origin:top;background:linear-gradient(90deg,#555,#e1e3df,#343);box-shadow:0 0 0 2px #050605}.tone-arm:after{content:'';width:14px;height:20px;position:absolute;bottom:-8px;left:-5px;background:#202522;border:1px solid #59605b}@keyframes platter-spin{to{transform:rotate(360deg)}}.pitch-fader{height:125px;display:grid;grid-template-rows:auto 1fr auto;place-items:center;color:#77817b;font:700 8px 'Chakra Petch'}.pitch-fader input{width:94px;transform:rotate(-90deg);accent-color:var(--acid)}.pitch-fader output{color:var(--acid);font:10px 'Share Tech Mono'}
+.deck-screen{grid-column:2;grid-row:2;align-self:center;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;min-height:58px;padding:8px 10px;color:var(--acid);background:#040705;border:1px solid #000;box-shadow:inset 0 0 15px #000,0 1px #3c433e;font:13px 'Share Tech Mono'}.deck-b .deck-screen{color:var(--amber)}.deck-screen div{height:22px;position:relative;overflow:hidden;background:repeating-linear-gradient(90deg,#2a352a 0 2px,transparent 2px 5px)}.deck-screen div:after{content:'';position:absolute;left:50%;inset-block:0;width:1px;background:#d9ff80}.deck-screen div i{display:block;height:100%;background:linear-gradient(90deg,#668c16,var(--acid));opacity:.45}.deck-screen strong{font-weight:400}.deck-seek{grid-column:2;grid-row:3;width:100%;accent-color:var(--acid)}.deck-controls{grid-column:2;grid-row:4;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.deck-controls button,.deck-file-actions button,.sample-modes button,.sample-file-actions button{color:#8f9993;background:linear-gradient(#252a27,#101312);border:1px solid #050605;box-shadow:inset 0 1px #444b47,0 2px #050605;font:800 9px 'Chakra Petch'}.deck-controls button.active,.sample-modes button.active{color:#182005;background:var(--acid)}.deck-controls button:disabled,.deck-file-actions button:disabled,.sample-file-actions button:disabled{opacity:.3}.deck-controls .play-control,.deck-file-actions button,.sample-file-actions button{display:flex;align-items:center;justify-content:center;gap:4px}.deck-controls svg,.deck-file-actions svg,.sample-file-actions svg{width:12px}.deck-tone{grid-column:2;grid-row:5;display:grid;grid-template-columns:62px 62px 1fr;align-items:center;gap:8px}.deck-tone>label:last-child{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;color:#747e77;font:700 8px 'Chakra Petch'}.deck-tone>label:last-child input{width:100%;accent-color:var(--acid)}.deck-tone>label:last-child output{color:#aab4ad;font:10px 'Share Tech Mono'}.deck-file-actions{grid-column:2;grid-row:6;display:grid;grid-template-columns:1fr 36px;gap:4px}
+.sampler-bay{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:12px;padding-top:14px;border-top:1px solid #454d48}.sampler-bay>header{grid-column:1/-1;display:flex;align-items:center;min-height:44px}.sampler-bay header strong{font:800 16px 'Chakra Petch'}.sample-pads{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.sample-pads button{min-height:80px;display:grid;grid-template-columns:auto 1fr;align-content:center;gap:1px 7px;padding:10px 12px;overflow:hidden;color:#7a847d;text-align:left;background:radial-gradient(circle at 50% 0,#313732,#111412 62%);border:1px solid #050605;border-radius:3px;box-shadow:inset 0 1px #555d57,0 3px #050605}.sample-pads button>i{width:7px;height:7px;align-self:center;border-radius:50%;background:#303631}.sample-pads button small{font:10px 'Share Tech Mono'}.sample-pads button strong{grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bdc6c0;font:800 11px 'Chakra Petch'}.sample-pads button span{grid-column:1/-1;color:#515a54;font:8px 'Chakra Petch'}.sample-pads button.loaded>i{background:var(--acid);box-shadow:0 0 8px var(--acid)}.sample-pads button.selected{border-color:#91b83d;box-shadow:inset 0 1px #6d795f,0 0 12px #baff2b26,0 3px #050605}.sample-pads button:active{transform:translateY(2px)}
+.sample-editor{display:grid;grid-template-columns:1.2fr 65px 65px;grid-template-rows:70px 46px 34px;gap:7px;padding:10px;background:#0b0e0c;border:1px solid #363d38}.sample-identity{display:grid;align-content:center}.sample-identity span{color:var(--acid);font:8px 'Chakra Petch'}.sample-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 13px 'Chakra Petch'}.sample-identity small{color:#505a53;font:8px 'Chakra Petch'}.trim-control{grid-column:1/-1;display:grid;grid-template-columns:85px 1fr 1fr auto;align-items:center;gap:6px;color:#6f7972;font:700 8px 'Chakra Petch'}.trim-control input{min-width:0;accent-color:var(--amber)}.trim-control output{color:#a9b2ac;font:9px 'Share Tech Mono'}.sample-modes{display:grid;grid-template-columns:1fr 1fr;gap:4px}.sample-file-actions{grid-column:2/4;display:grid;grid-template-columns:1fr 34px;gap:4px}.sample-sequencer{grid-column:1/-1;display:grid;grid-template-columns:110px repeat(16,1fr);gap:3px;align-items:center}.sample-sequencer>span{color:#7b857f;font:700 9px 'Chakra Petch'}.sample-sequencer button{height:42px;display:grid;place-items:center;color:#626c65;background:#161a18;border:1px solid #050605;box-shadow:inset 0 1px #3c433f}.sample-sequencer button small{font:8px 'Share Tech Mono'}.sample-sequencer button i{width:6px;height:6px;border-radius:50%;background:#313832}.sample-sequencer button.on i{background:var(--acid);box-shadow:0 0 7px var(--acid)}.sample-sequencer button.accent{color:#1d1404;background:var(--amber)}
+.performance-view .media-bay{display:none}
+@media(max-width:1180px){.media-bay{min-width:1040px}.rack-nav{grid-template-columns:repeat(8,1fr)}}
+@media(max-width:680px){.song-strip{grid-template-columns:minmax(0,1fr);min-height:0}.song-arranger{grid-template-rows:auto auto}.section-launchers{overflow-x:auto;scroll-snap-type:x mandatory}.section-launchers button{min-height:44px;scroll-snap-align:start}.song-bars{display:flex;grid-template-columns:none}.song-phrase{min-width:680px}.arrangement-actions{grid-template-columns:repeat(2,1fr)}.arrangement-actions>button{min-height:44px}.arrangement-actions .capture-button{grid-column:1/-1}.rack-nav{grid-template-columns:repeat(8,1fr)}.rack-nav button{padding-inline:2px;font-size:8px}.piano-keyboard{height:62px}}
+
+/* Hip-hop sampling workstation: dense, tactile and deliberately closer to a hardware chop station than a form UI. */
+.sampler-bay { grid-template-columns:minmax(0,1fr) 470px; }
+.sample-bank-toolbar { grid-column:1/-1; display:grid; grid-template-columns:auto repeat(4,42px) 1fr repeat(3,92px); align-items:center; gap:4px; padding:7px 9px; color:#77837b; background:#090c0a; border:1px solid #303833; font:800 9px 'Chakra Petch'; }
+.sample-bank-toolbar button,.chop-actions button,.resample-strip button,.note-repeat button { min-height:31px; color:#849087; background:#171c19; border:1px solid #343d37; box-shadow:inset 0 1px #465048; font:800 8px 'Chakra Petch'; }
+.sample-bank-toolbar button.active,.note-repeat button.active { color:#172005; background:var(--acid); border-color:#9bbf32; }.sample-bank-toolbar button.levels.active { color:#1c1204; background:var(--amber); border-color:#9b641d; }
+.sample-editor { grid-template-columns:minmax(130px,1fr) repeat(5,54px); grid-template-rows:auto auto auto; min-height:174px; }
+.sample-editor .trim-control { grid-column:1/-1; }.sample-editor .sample-modes { grid-column:1/4; grid-template-columns:repeat(4,1fr); }.sample-editor .sample-file-actions { grid-column:4/-1; grid-template-columns:1fr 52px 34px; }
+.chop-lab { grid-column:1/-1; display:grid; grid-template-columns:130px minmax(0,1fr) 320px; align-items:center; gap:10px; padding:9px 11px; background:#080b09; border:1px solid #333c36; }.chop-title { display:grid; padding-left:9px; border-left:3px solid var(--amber); }.chop-title span { color:var(--amber); font:800 8px 'Chakra Petch'; letter-spacing:.14em; }.chop-title strong { font:800 13px 'Chakra Petch'; }.sample-waveform { height:58px; display:grid; place-items:center; overflow:hidden; color:#4d5851; background:#030504; border:1px solid #202823; font:8px 'Share Tech Mono'; }.sample-waveform svg { width:100%; height:100%; }.sample-waveform line { stroke:var(--acid); stroke-width:.65; opacity:.8; }.sample-waveform line.trim-marker { stroke:var(--amber); stroke-width:1.5; opacity:1; }.chop-actions { display:grid; grid-template-columns:64px 64px 1fr 1fr; gap:4px; }.chop-actions label { display:grid; gap:2px; color:#6f7b73; font:700 7px 'Chakra Petch'; }.chop-actions input,.chop-actions select,.resample-strip select { min-width:0; padding:5px; color:#c6d0c9; background:#101512; border:1px solid #354039; font:10px 'Share Tech Mono'; }
+.resample-strip { grid-column:1/-1; display:grid; grid-template-columns:120px 130px 230px 1fr; align-items:center; gap:6px; padding:7px 11px; color:#738078; background:linear-gradient(90deg,#15120b,#0b0d0b); border:1px solid #3c392c; font:800 8px 'Chakra Petch'; letter-spacing:.09em; }.resample-strip button { color:#1c1204; background:var(--amber); border-color:#9f671d; }.resample-strip small { color:#5e665f; font:8px 'Share Tech Mono'; letter-spacing:0; }
+.sample-sequencer { grid-column:1/-1; }.sample-sequencer button { position:relative; }.sample-sequencer button.editing { outline:2px solid var(--amber); outline-offset:1px; }.sample-sequencer button em { position:absolute; right:3px; bottom:2px; color:var(--amber); font:700 7px 'Share Tech Mono'; font-style:normal; }
+.sample-groove-editor { grid-column:1/-1; display:grid; grid-template-columns:90px repeat(4,1fr); align-items:center; gap:9px; padding:9px 11px; color:#7b877f; background:#0b0f0c; border:1px solid #333c36; }.sample-groove-editor>span { color:var(--amber); font:800 12px 'Chakra Petch'; }.sample-groove-editor label { display:grid; grid-template-columns:58px 1fr 42px; align-items:center; gap:5px; font:700 8px 'Chakra Petch'; }.sample-groove-editor input { min-width:0; accent-color:var(--amber); }.sample-groove-editor output { color:#b8c3bb; font:9px 'Share Tech Mono'; text-align:right; }
+.sampler-color { grid-column:1/-1; display:grid; grid-template-columns:110px repeat(4,58px) minmax(300px,1fr); align-items:center; gap:10px; padding:10px 12px; color:#7a867e; background:linear-gradient(100deg,#121713,#080a09); border:1px solid #343c37; }.sampler-color>span { color:var(--acid); font:800 10px 'Chakra Petch'; letter-spacing:.12em; }.note-repeat { display:grid; grid-template-columns:auto repeat(4,1fr); gap:4px; align-items:center; }.note-repeat>span { color:#707c74; font:800 8px 'Chakra Petch'; }.note-repeat button { min-width:44px; }
+.channel-strips { grid-template-columns:repeat(4,1fr); }
+.source-mixer { min-height:730px; }
+@media(max-width:1180px){.sampler-bay{grid-template-columns:minmax(0,1fr) 470px}.source-mixer{min-height:0}.channel-strips{grid-template-columns:repeat(8,52px);overflow-x:auto}}
+
+/* Recovery controls stay compact but unmistakable: red clears data, green restores signal. */
+.media-deck>header i.signal-warning{color:var(--red);text-shadow:0 0 7px #ff514955}
+.deck-controls{grid-template-columns:repeat(5,1fr)}
+.deck-controls button.active.danger{color:white;background:#8f2b25}
+.deck-file-actions{grid-template-columns:1fr 88px 36px}
+.deck-file-actions button.restore-needed{color:#172005;background:var(--acid);border-color:#bce95b;box-shadow:0 0 8px #baff3044}
+.sampler-bay header .machine-reset-actions{display:flex;margin-left:auto}
+.sampler-bay header .machine-reset-actions+p{margin-left:14px}
+#master-rack { scroll-margin-top:145px; }
+
+/* Keep small hardware labels legible against the charcoal panels. */
+.master-rack > header span, .master-rack .module-title, .master-rack .knob-control .control-label,
+.master-rack .knob-control output, .master-rack .channel-send, .master-rack .channel-eq label,
+.master-rack .gain-reduction span, .master-rack .headphone-mark, .master-rack .scope span,
+.master-rack .master-fader label { color:#aebbb1; }
+.status-rail, .digital-readout span, footer, .performance-deck > header > i,
+.scene-tools p, .fx-pads button small, .media-bay-header p, .sampler-bay header p,
+.media-deck > header i, .sample-pads button span, .sample-identity small,
+.trim-control, .chop-actions label, .resample-strip, .resample-strip small,
+.sample-bank-toolbar, .sample-groove-editor, .sampler-color,
+.note-repeat > span, .help-popover .browser-note, .projects-popover > small,
+.project-name span, .saved-list small { color:#aab8ae; }
+.sample-waveform, .sample-sequencer button, .scene-bank button,
+.sample-pads button, .sample-sequencer > span, .deck-tone > label:last-child { color:#aebbb1; }
+@media (max-width:1180px) {
+  .master-rack { display:block; width:100%; min-width:0; }
+  .master-rack > header, .master-rack .source-mixer, .master-rack .scope,
+  .master-rack .rack-module, .master-rack .master-fader, .master-rack .export-button { margin-block:12px; padding-block:12px; }
+  .master-rack .source-mixer { overflow-x:auto; }
+  .master-rack .channel-strips { min-width:520px; }
+}
