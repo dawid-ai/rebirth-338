@@ -1,0 +1,32 @@
+import { chromium } from 'playwright'
+
+const browser = await chromium.launch({ headless: true })
+try {
+  const page = await browser.newPage()
+  await page.goto('http://127.0.0.1:5173', { waitUntil: 'domcontentloaded' })
+  const editor = page.locator('.automation-editor')
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('reborn338.autosave')).bass.map((voice) => voice.delay))
+  await editor.getByRole('button', { name: 'THIS BAR' }).click()
+  await editor.getByRole('spinbutton', { name: 'Automation bar' }).fill('2')
+  const delay = editor.getByRole('slider', { name: 'DELAY', exact: true })
+  await delay.focus()
+  await delay.press('End')
+  await page.waitForTimeout(100)
+  let saved = await page.evaluate(() => JSON.parse(localStorage.getItem('reborn338.autosave')))
+  if (saved.channelAutomation['bass-0']?.bars['1']?.delay !== 100) throw new Error('Bar automation did not save')
+  if (saved.bass[0].delay !== before[0] || saved.bass[1].delay !== before[1]) throw new Error('Bar automation changed base channel sends')
+  await editor.getByRole('button', { name: 'THIS STEP' }).click()
+  await editor.getByRole('combobox', { name: 'Automation step' }).selectOption('3')
+  await delay.focus()
+  await delay.press('Home')
+  await delay.press('ArrowRight')
+  await page.waitForTimeout(100)
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem('reborn338.autosave')))
+  if (saved.channelAutomation['bass-0']?.steps['1:2']?.delay !== 1) throw new Error('Step automation did not save')
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('reborn338.autosave')))
+  if (restored.channelAutomation['bass-0']?.bars['1']?.delay !== 100 || restored.channelAutomation['bass-0']?.steps['1:2']?.delay !== 1) throw new Error('Automation did not survive reload')
+  console.log({ baseBass01Echo: before[0], baseBass02Echo: before[1], bar2Echo: restored.channelAutomation['bass-0'].bars['1'].delay, bar2Step3Echo: restored.channelAutomation['bass-0'].steps['1:2'].delay })
+} finally {
+  await browser.close()
+}

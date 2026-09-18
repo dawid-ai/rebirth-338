@@ -4,7 +4,7 @@ import {
   Minus, Pause, Play, Plus, Radio, Redo2, RotateCcw, Save, SkipBack,
   SkipForward, Square, Trash2, Undo2, Upload, Waves,
 } from 'lucide-react'
-import { drumNames, fxPadNames, hydrateProject, normalizeSongScenes, restoreBassDefaults, restoreDeckDefaults, restoreRhythmDefaults, restoreSamplerDefaults, restoreWaveDefaults, transferWaveToBass, wipeBassPattern, wipeRhythmPattern, wipeSamplerPattern, wipeWavePattern, type BassVoice, type DeckState, type DesignerWaveform, type DrumName, type DrumStep, type ProjectState, type RhythmMachineState, type SamplerState, type WaveDesignerState } from './model'
+import { applyChannelAutomation, automationKeys, automationValue, clearAutomationPosition, drumNames, fxPadNames, hydrateProject, normalizeSongScenes, restoreBassDefaults, restoreDeckDefaults, restoreRhythmDefaults, restoreSamplerDefaults, restoreWaveDefaults, setAutomationValue, shiftAutomationBars, transferWaveToBass, wipeBassPattern, wipeRhythmPattern, wipeSamplerPattern, wipeWavePattern, type AutomationChannel, type AutomationScope, type AutomationValue, type BassVoice, type DeckState, type DesignerWaveform, type DrumName, type DrumStep, type ProjectState, type RhythmMachineState, type SamplerState, type WaveDesignerState } from './model'
 import { GrooveEngine, isMixerChannelAudible, type DeckPlaybackState } from './audio/engine'
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectSummary } from './state/projectStore'
 import { deleteAudioAsset, restoreProjectAudioAssets, saveAudioAsset } from './state/audioAssetStore'
@@ -354,6 +354,69 @@ function ChannelStrip({ label, level, pan, delay, reverb, eq, muted, solo, onLev
   </div>
 }
 
+const automationChannels: Array<{ id: AutomationChannel; label: string }> = [
+  { id: 'bass-0', label: '303·1' }, { id: 'bass-1', label: '303·2' },
+  { id: 'drums-0', label: '808' }, { id: 'drums-1', label: '909' },
+  { id: 'wave', label: 'WAVE' }, { id: 'sampler', label: 'SAMPLE' },
+  { id: 'deck-0', label: 'DECK A' }, { id: 'deck-1', label: 'DECK B' },
+]
+const automationChoices: Record<string, string[]> = {
+  oscSource: ['classic', 'designer'], waveform: ['sawtooth', 'square', 'sine', 'triangle'],
+  designerWaveform: ['sine', 'triangle', 'sawtooth', 'square'],
+  mode: ['oneShot', 'loop'],
+}
+
+function AutomationEditor({ project, playBar, playStep, channel, onChannel, onChange, onClear }: {
+  project: ProjectState; playBar: number; playStep: number; channel: AutomationChannel; onChannel: (channel: AutomationChannel) => void
+  onChange: (scope: AutomationScope, bar: number, step: number, key: string, value: AutomationValue) => void
+  onClear: (scope: 'bar' | 'step', bar: number, step: number) => void
+}) {
+  const [scope, setScope] = useState<AutomationScope>('global')
+  const [targetBar, setTargetBar] = useState(1)
+  const [targetStep, setTargetStep] = useState(1)
+  const [targetDrum, setTargetDrum] = useState<DrumName>('kick')
+  const [targetSlot, setTargetSlot] = useState(0)
+  const zeroBar = project.mode === 'song' ? Math.max(0, Math.min(targetBar - 1, project.songChain.length - 1)) : 0
+  const zeroStep = targetStep - 1
+  const shownProject = scope === 'global' ? project : applyChannelAutomation(project, zeroBar, scope === 'bar' ? -1 : zeroStep)
+  const keys = automationKeys(channel).filter((key) => !key.includes('.') || (channel.startsWith('drums') && key.startsWith(`${targetDrum}.`)) || (channel === 'sampler' && key.startsWith(`slots.${targetSlot}.`)))
+  const lane = project.channelAutomation[channel]
+  const recorded = scope === 'bar' ? lane?.bars[String(zeroBar)] : scope === 'step' ? lane?.steps[`${zeroBar}:${zeroStep}`] : undefined
+  const labelFor = (key: string) => key.replace(/^.*\./, '').replace(/([A-Z])/g, ' $1').toUpperCase()
+  const changeNumber = (key: string, raw: number) => {
+    const slot = shownProject.sampler.slots[targetSlot]
+    const value = key.endsWith('.trimStart') ? Math.min(raw, slot.trimEnd - 0.01)
+      : key.endsWith('.trimEnd') ? Math.max(raw, slot.trimStart + 0.01) : raw
+    onChange(scope, zeroBar, zeroStep, key, value)
+  }
+  return <section className="automation-editor" id="automation-editor" aria-label="Channel automation editor">
+    <header><div><span>AUTOMATION MEMORY</span><strong>CHANNEL / BAR / STEP</strong></div><small>Base → bar → step · saved with project</small></header>
+    <div className="automation-channel-pick" role="group" aria-label="Automation channel">{automationChannels.map((item) => <button key={item.id} aria-pressed={channel === item.id} className={channel === item.id ? 'active' : ''} onClick={() => onChannel(item.id)}>{item.label}</button>)}</div>
+    {channel.startsWith('drums') && <label className="automation-subsource">DRUM VOICE <select aria-label="Automation drum voice" value={targetDrum} onChange={(event) => setTargetDrum(event.target.value as DrumName)}>{drumNames.map((name) => <option key={name} value={name}>{name.toUpperCase()}</option>)}</select></label>}
+    {channel === 'sampler' && <label className="automation-subsource">SAMPLE PAD <select aria-label="Automation sample pad" value={targetSlot} onChange={(event) => setTargetSlot(Number(event.target.value))}>{project.sampler.slots.map((slot, index) => <option key={index} value={index}>{String(index + 1).padStart(2, '0')} · {slot.name}</option>)}</select></label>}
+    <div className="automation-scope" role="group" aria-label="Automation scope">{(['global', 'bar', 'step'] as const).map((item) => <button key={item} aria-pressed={scope === item} className={scope === item ? 'active' : ''} onClick={() => setScope(item)}>{item === 'global' ? 'GLOBAL BASE' : item === 'bar' ? 'THIS BAR' : 'THIS STEP'}</button>)}</div>
+    {scope !== 'global' && <div className="automation-position">
+      <label>BAR <input aria-label="Automation bar" type="number" min="1" max={project.mode === 'song' ? project.songChain.length : 1} value={project.mode === 'song' ? Math.min(targetBar, project.songChain.length) : 1} disabled={project.mode !== 'song'} onChange={(event) => setTargetBar(Math.max(1, Math.min(project.songChain.length, Number(event.target.value) || 1)))} /></label>
+      {scope === 'step' && <label>KEY <select aria-label="Automation step" value={targetStep} onChange={(event) => setTargetStep(Number(event.target.value))}>{Array.from({ length: 16 }, (_, index) => <option key={index} value={index + 1}>{String(index + 1).padStart(2, '0')}</option>)}</select></label>}
+      <button onClick={() => { setTargetBar(playBar); setTargetStep(Math.max(1, playStep + 1)) }}>USE PLAYHEAD</button>
+      <button className="automation-clear" disabled={!recorded || !Object.keys(recorded).length} onClick={() => onClear(scope, zeroBar, zeroStep)}>CLEAR {scope.toUpperCase()}</button>
+      <span>{recorded ? `${Object.keys(recorded).length} SAVED CONTROL${Object.keys(recorded).length === 1 ? '' : 'S'}` : 'INHERITING BASE'}</span>
+    </div>}
+    <p>{scope === 'global' ? 'Edit the channel’s base sound. Bar and step overrides stay saved.' : scope === 'bar' ? 'These controls replace the base only in this song bar. Unchanged controls inherit the base.' : 'These controls replace the bar sound on one of its 16 keys. Other keys are untouched.'}</p>
+    <div className="automation-controls">{keys.map((key) => {
+      const value = automationValue(shownProject, channel, key)
+      if (value === undefined) return null
+      const recordedHere = Boolean(recorded && Object.hasOwn(recorded, key))
+      const options = key === 'waveform' && channel.startsWith('bass') ? ['sawtooth', 'square'] : automationChoices[key]
+      return <label key={key} className={recordedHere ? 'recorded' : ''}><span>{labelFor(key)}</span>{typeof value === 'boolean'
+        ? <button aria-label={`${labelFor(key)} ${value ? 'on' : 'off'}`} aria-pressed={value} onClick={() => onChange(scope, zeroBar, zeroStep, key, !value)}>{value ? 'ON' : 'OFF'}</button>
+        : options ? <select aria-label={labelFor(key)} value={value} onChange={(event) => onChange(scope, zeroBar, zeroStep, key, event.target.value)}>{options.map((option) => <option key={option} value={option}>{option.toUpperCase()}</option>)}</select>
+          : <><input aria-label={labelFor(key)} type="range" min={key === 'pitch' ? -12 : key === 'rate' ? 0.5 : key.endsWith('.pitch') ? -100 : key.endsWith('.sourceBpm') ? 40 : key === 'pan' || key === 'filter' || key.endsWith('.pan') || (key === 'tune' && !channel.startsWith('drums')) ? -100 : key.endsWith('.trimEnd') ? 0.01 : 0} max={key === 'pitch' ? 12 : key === 'rate' ? 1.5 : key.endsWith('.sourceBpm') ? 240 : key.endsWith('.chokeGroup') ? 4 : key.endsWith('.trimStart') ? 0.99 : key.endsWith('.trimEnd') ? 1 : 100} step={key === 'rate' || key === 'pitch' || key.endsWith('.trimStart') || key.endsWith('.trimEnd') ? 0.01 : 1} value={value} onChange={(event) => changeNumber(key, Number(event.target.value))} /><output>{value}</output></>}
+      </label>
+    })}</div>
+  </section>
+}
+
 function Scope({ samples }: { samples: number[] }) {
   const values = samples.length ? samples : Array.from({ length: 96 }, () => 0)
   const path = values.map((value, index) => `${index ? 'L' : 'M'} ${(index / (values.length - 1)) * 360} ${37 - value * 31}`).join(' ')
@@ -527,6 +590,7 @@ export default function App() {
   const [recording, setRecording] = useState(false)
   const [currentStep, setCurrentStep] = useState(-1)
   const [bar, setBar] = useState(1)
+  const [automationChannel, setAutomationChannel] = useState<AutomationChannel>('bass-0')
   const [showProjects, setShowProjects] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [performanceView, setPerformanceView] = useState(false)
@@ -547,6 +611,7 @@ export default function App() {
   const history = useRef<ProjectState[]>([])
   const future = useRef<ProjectState[]>([])
   const projectRef = useRef(project)
+  const positionOnlyProjectRef = useRef<ProjectState | null>(null)
   const recordingRef = useRef(recording)
   const barRef = useRef(bar)
   const seenDownbeat = useRef(false)
@@ -575,7 +640,9 @@ export default function App() {
           songChain[nextBar - 1] = { bass: [current.bass[0].bank * 8 + current.bass[0].pattern, current.bass[1].bank * 8 + current.bass[1].pattern], drums: [current.rhythms[0].bank * 8 + current.rhythms[0].pattern, current.rhythms[1].bank * 8 + current.rhythms[1].pattern] }
           return { ...current, songChain }
         }
-        return applySongPosition(current, nextBar - 1)
+        const positioned = applySongPosition(current, nextBar - 1)
+        positionOnlyProjectRef.current = positioned
+        return positioned
       })
     })
     void restoreProjectAudioAssets(projectRef.current, engineRef.current).catch(() => undefined)
@@ -591,7 +658,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    engineRef.current?.setProject(project)
+    if (positionOnlyProjectRef.current !== project) engineRef.current?.setProject(project)
+    positionOnlyProjectRef.current = null
     localStorage.setItem('reborn338.autosave', JSON.stringify(project))
   }, [project])
 
@@ -619,6 +687,12 @@ export default function App() {
   }, [])
 
   const update = useCallback((patch: Partial<ProjectState>) => commit((current) => ({ ...current, demoAutoMix: false, ...patch })), [commit])
+  const changeAutomation = useCallback((scope: AutomationScope, targetBar: number, targetStep: number, key: string, value: AutomationValue) => {
+    commit((current) => ({ ...setAutomationValue(current, automationChannel, scope, targetBar, targetStep, key, value), demoAutoMix: false }))
+  }, [automationChannel, commit])
+  const clearAutomation = useCallback((scope: 'bar' | 'step', targetBar: number, targetStep: number) => {
+    commit((current) => clearAutomationPosition(current, automationChannel, scope, targetBar, targetStep))
+  }, [automationChannel, commit])
   const updateBass = useCallback((index: number, voice: BassVoice) => commit((current) => ({ ...current, demoAutoMix: false, bass: current.bass.map((item, cursor) => cursor === index ? voice : item) as [BassVoice, BassVoice] })), [commit])
   const updateRhythm = useCallback((index: number, machine: RhythmMachineState) => commit((current) => ({ ...current, demoAutoMix: false, rhythms: current.rhythms.map((item, cursor) => cursor === index ? machine : item) as [RhythmMachineState, RhythmMachineState] })), [commit])
   const updateWaveDesigner = useCallback((waveDesigner: WaveDesignerState) => commit((current) => ({ ...current, demoAutoMix: false, waveDesigner })), [commit])
@@ -794,7 +868,7 @@ export default function App() {
       const songChain = [...current.songChain]
       songChain.splice(targetBar, 0, { bass: [...source.bass] as [number, number], drums: [...source.drums] as [number, number] })
       const songScenes = normalizeSongScenes(current.songScenes.map((scene) => scene.start >= targetBar ? { ...scene, start: scene.start + 1 } : scene), songChain.length)
-      return { ...current, songChain, songScenes }
+      return shiftAutomationBars({ ...current, songChain, songScenes }, targetBar, 1)
     })
     setBar(nextBar); barRef.current = nextBar; engineRef.current?.setSongPosition(nextBar - 1)
     notify(`BAR INSERTED AFTER ${String(targetBar).padStart(2, '0')}`)
@@ -813,7 +887,7 @@ export default function App() {
       const removedIndex = targetBar - 1
       const songChain = current.songChain.filter((_, index) => index !== removedIndex)
       const shifted = current.songScenes.map((scene) => scene.start > removedIndex ? { ...scene, start: scene.start - 1 } : scene)
-      return { ...current, songChain, songScenes: normalizeSongScenes(shifted, songChain.length) }
+      return shiftAutomationBars({ ...current, songChain, songScenes: normalizeSongScenes(shifted, songChain.length) }, removedIndex, -1)
     })
     setBar(nextBar); barRef.current = nextBar; engineRef.current?.setSongPosition(nextBar - 1)
   }
@@ -1004,6 +1078,7 @@ export default function App() {
               <ChannelStrip label="SAMP" level={project.sampler.level} pan={project.sampler.pan} delay={project.sampler.delay} reverb={project.sampler.reverb} eq={[project.sampler.eqLow, project.sampler.eqMid, project.sampler.eqHigh]} muted={project.sampler.muted} solo={project.sampler.solo} onLevel={(level) => updateSampler({ ...project.sampler, level })} onPan={(pan) => updateSampler({ ...project.sampler, pan })} onDelay={(delay) => updateSampler({ ...project.sampler, delay })} onReverb={(reverb) => updateSampler({ ...project.sampler, reverb })} onEq={(band, value) => updateSampler({ ...project.sampler, [(['eqLow', 'eqMid', 'eqHigh'] as const)[band]]: value })} onMute={() => updateSampler({ ...project.sampler, muted: !project.sampler.muted })} onSolo={() => updateSampler({ ...project.sampler, solo: !project.sampler.solo })} />
               {project.decks.map((deck, index) => <ChannelStrip key={index} label={`DECK ${index ? 'B' : 'A'}`} level={deck.gain} pan={deck.pan} delay={deck.delay} reverb={deck.reverb} eq={[deck.eqLow, deck.eqMid, deck.eqHigh]} muted={deck.muted} solo={deck.solo} onLevel={(gain) => updateDeck(index, { gain })} onPan={(pan) => updateDeck(index, { pan })} onDelay={(delay) => updateDeck(index, { delay })} onReverb={(reverb) => updateDeck(index, { reverb })} onEq={(band, value) => updateDeck(index, { [(['eqLow', 'eqMid', 'eqHigh'] as const)[band]]: value })} onMute={() => updateDeck(index, { muted: !deck.muted })} onSolo={() => updateDeck(index, { solo: !deck.solo })} />)}
             </div>
+            <AutomationEditor project={project} playBar={bar} playStep={currentStep} channel={automationChannel} onChannel={setAutomationChannel} onChange={changeAutomation} onClear={clearAutomation} />
           </div>
           <Scope samples={waveform} />
           <div className="rack-module delay-module">
@@ -1061,6 +1136,7 @@ export default function App() {
           <section><h3>6 · SAMPLE & DJ</h3><p>Decks A/B start with playable loops. A red deck status identifies mute, Solo blocking, zero gain, or a crossfader cut; <b>Restore Sound</b> repairs that routing. Amen Break is ready for Auto 4/8 chopping and Warp.</p></section>
           <section><h3>7 · SAVE & EXPORT</h3><p>Autosave and named projects stay locally in this browser. Project export preserves settings and user-audio references on this device; WAV Export renders the full song or a four-bar pattern loop.</p></section>
           <section><h3>GLOBAL SOUND</h3><p>Echo and Reverb Mix act on every audible channel; mixer ECHO+ and SPACE+ add extra send for that channel. All Echo FX OFF bypasses delay, reverb, and Live Beat Repeat. Soften tames harshness, while Brightness, Drive, and Glue shape the full mix.</p></section>
+          <section><h3>CHANNEL AUTOMATION</h3><p>In Mix → Automation Memory, choose any channel, then Global Base, This Bar, or This Step. Bar overrides apply only to the chosen song bar; step overrides apply only to its selected key. Unchanged controls inherit the broader setting. Use Playhead to target what is playing, or Clear to remove an override. Automation is saved with projects and included in WAV exports.</p></section>
           <section><h3>FAST START</h3><p>Press <kbd>Space</kbd> to hear the current song. In Projects, choose a demo and Load Selected Demo for a fresh complete song and sound setup. These are original tributes, not soundtrack recordings.</p></section>
         </div>
         <p className="browser-note">Audio wakes after your first click or key press, as required by modern browsers.</p>

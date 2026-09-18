@@ -1,4 +1,5 @@
 import {
+  applyChannelAutomation,
   createDefaultProject,
   drumNames,
   fxPadNames,
@@ -243,9 +244,9 @@ class AudioGraph {
     this.updateProject(project)
   }
 
-  updateProject(project: ProjectState): void {
+  updateProject(project: ProjectState, atTime = this.context.currentTime): void {
     this.project = project
-    const now = this.context.currentTime
+    const now = atTime
     this.masterGain.gain.setTargetAtTime(clamp(project.master), now, 0.015)
     const compression = unit(project.compressor)
     const smooth = project.smoothOutput
@@ -1352,10 +1353,11 @@ export class GrooveEngine {
       for (let localBar = 0; localBar < chunkBars; localBar += 1) {
         const songBar = firstBar + localBar
         snapshot = project.mode === 'song' ? projectAtSongBar(project, songBar) : project
-        graph.updateProject(snapshot)
-        if (project.mode === 'song') scheduleArrangementFx(graph, project, songBar, time)
         for (let step = 0; step < STEPS; step += 1) {
-          schedulePatternStep(graph, snapshot, step, time, secondsPerStep, this.sampleBuffers)
+          const stepSnapshot = applyChannelAutomation(snapshot, project.mode === 'song' ? songBar : 0, step)
+          graph.updateProject(stepSnapshot, time)
+          if (project.mode === 'song' && step === 0) scheduleArrangementFx(graph, project, songBar, time)
+          schedulePatternStep(graph, stepSnapshot, step, time, secondsPerStep, this.sampleBuffers)
           time += swungStepDuration(project, step)
         }
       }
@@ -1419,12 +1421,24 @@ export class GrooveEngine {
         this.songSnapshot = { bar: this.songBar, project: projectAtSongBar(this.project, this.songBar) }
       }
       const snapshot = this.project.mode === 'song' ? this.songSnapshot!.project : this.project
-      if (scheduledStep === 0) this.graph.updateProject(snapshot)
+      const stepSnapshot = applyChannelAutomation(snapshot, this.project.mode === 'song' ? scheduledBar : 0, scheduledStep)
+      this.graph.updateProject(stepSnapshot, scheduledTime)
+      this.decks.forEach((runtime, index) => {
+        if (runtime.source && runtime.playing) runtime.source.playbackRate.setTargetAtTime(deckPlaybackRate(stepSnapshot.decks[index]), scheduledTime, 0.012)
+      })
       if (this.project.mode === 'song' && scheduledStep === 0) scheduleArrangementFx(this.graph, this.project, this.songBar, scheduledTime)
-      schedulePatternStep(this.graph, snapshot, scheduledStep, scheduledTime, duration, this.sampleBuffers)
+      schedulePatternStep(this.graph, stepSnapshot, scheduledStep, scheduledTime, duration, this.sampleBuffers)
       const delay = Math.max(0, (scheduledTime - this.context.currentTime) * 1000)
       const callback = setTimeout(() => {
         this.callbackTimers.delete(callback)
+        this.decks.forEach((runtime, index) => {
+          if (!runtime.source || !runtime.playing || !this.context) return
+          const rate = deckPlaybackRate(stepSnapshot.decks[index])
+          if (rate === runtime.rate) return
+          runtime.offset = this.deckPosition(index)
+          runtime.startedAt = this.context.currentTime
+          runtime.rate = rate
+        })
         this.onStep(scheduledStep, scheduledBar)
       }, delay)
       this.callbackTimers.add(callback)

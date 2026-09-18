@@ -200,6 +200,117 @@ export type SamplerState = {
   texture: number
 }
 
+export type AutomationChannel = 'bass-0' | 'bass-1' | 'drums-0' | 'drums-1' | 'wave' | 'sampler' | 'deck-0' | 'deck-1'
+export type AutomationScope = 'global' | 'bar' | 'step'
+export type AutomationValue = number | boolean | string
+export type AutomationLane = { bars: Record<string, Record<string, AutomationValue>>; steps: Record<string, Record<string, AutomationValue>> }
+export type ChannelAutomation = Partial<Record<AutomationChannel, AutomationLane>>
+
+const mixerAutomationKeys = ['level', 'pan', 'delay', 'reverb', 'eqLow', 'eqMid', 'eqHigh', 'muted', 'solo']
+const bassAutomationKeys = [...mixerAutomationKeys, 'cutoff', 'resonance', 'envMod', 'decay', 'accent', 'drive', 'tune', 'oscSource', 'waveform', 'designerWaveform', 'designerSpread']
+const drumAutomationKeys = [...mixerAutomationKeys, ...drumNames.flatMap((name) => ['level', 'tone', 'decay', 'tune', 'pan', 'delay', 'reverb', 'muted', 'solo'].map((key) => `${name}.${key}`))]
+const waveAutomationKeys = [...mixerAutomationKeys, 'waveform', 'cutoff', 'resonance', 'attack', 'release', 'spread', 'drive', 'tune']
+const samplerAutomationKeys = [...mixerAutomationKeys, 'drive', 'bitDepth', 'sampleRate', 'texture', ...Array.from({ length: 32 }, (_, slot) => ['gain', 'pitch', 'reverse', 'mode', 'trimStart', 'trimEnd', 'filter', 'attack', 'release', 'chokeGroup', 'normalize', 'sourceBpm', 'warp'].map((key) => `slots.${slot}.${key}`)).flat()]
+const deckAutomationKeys = ['gain', 'pan', 'delay', 'reverb', 'eqLow', 'eqMid', 'eqHigh', 'muted', 'solo', 'filter', 'pitch', 'rate']
+
+export function automationKeys(channel: AutomationChannel): string[] {
+  return channel.startsWith('bass') ? bassAutomationKeys : channel.startsWith('drums') ? drumAutomationKeys
+    : channel === 'wave' ? waveAutomationKeys : channel === 'sampler' ? samplerAutomationKeys : deckAutomationKeys
+}
+
+export function automationValue(project: ProjectState, channel: AutomationChannel, key: string): AutomationValue | undefined {
+  if (!automationKeys(channel).includes(key)) return undefined
+  const source = channel.startsWith('bass') ? project.bass[Number(channel.at(-1))]
+    : channel.startsWith('drums') ? project.rhythms[Number(channel.at(-1))]
+      : channel === 'wave' ? project.waveDesigner : channel === 'sampler' ? project.sampler : project.decks[Number(channel.at(-1))]
+  const [drum, field] = key.split('.')
+  if (field && channel.startsWith('drums')) return (source as RhythmMachineState).drums[drum as DrumName]?.[field as keyof DrumVoice]
+  if (channel === 'sampler' && drum === 'slots') {
+    const [, slot, slotField] = key.split('.')
+    return (source as SamplerState).slots[Number(slot)]?.[slotField as keyof SamplerSlot] as AutomationValue | undefined
+  }
+  return (source as unknown as Record<string, AutomationValue>)[key]
+}
+
+function withChannelValue(project: ProjectState, channel: AutomationChannel, key: string, value: AutomationValue): ProjectState {
+  if (!automationKeys(channel).includes(key)) return project
+  if (channel.startsWith('bass')) {
+    const index = Number(channel.at(-1))
+    return { ...project, bass: project.bass.map((voice, cursor) => cursor === index ? { ...voice, [key]: value } : voice) as ProjectState['bass'] }
+  }
+  if (channel.startsWith('drums')) {
+    const index = Number(channel.at(-1))
+    const [drum, field] = key.split('.')
+    return { ...project, rhythms: project.rhythms.map((machine, cursor) => {
+      if (cursor !== index) return machine
+      if (!field) return { ...machine, [key]: value }
+      return { ...machine, drums: { ...machine.drums, [drum]: { ...machine.drums[drum as DrumName], [field]: value } } }
+    }) as ProjectState['rhythms'] }
+  }
+  if (channel === 'wave') return { ...project, waveDesigner: { ...project.waveDesigner, [key]: value } }
+  if (channel === 'sampler') {
+    if (key.startsWith('slots.')) {
+      const [, slot, field] = key.split('.')
+      return { ...project, sampler: { ...project.sampler, slots: project.sampler.slots.map((item, cursor) => cursor === Number(slot) ? { ...item, [field]: value } : item) } }
+    }
+    return { ...project, sampler: { ...project.sampler, [key]: value } }
+  }
+  const index = Number(channel.at(-1))
+  return { ...project, decks: project.decks.map((deck, cursor) => cursor === index ? { ...deck, [key]: value } : deck) as ProjectState['decks'] }
+}
+
+export function setAutomationValue(project: ProjectState, channel: AutomationChannel, scope: AutomationScope, bar: number, step: number, key: string, value: AutomationValue): ProjectState {
+  if (!automationKeys(channel).includes(key)) return project
+  if (scope === 'global') return withChannelValue(project, channel, key, value)
+  const lane = project.channelAutomation[channel] ?? { bars: {}, steps: {} }
+  const bucket = scope === 'bar' ? 'bars' : 'steps'
+  const position = scope === 'bar' ? String(bar) : `${bar}:${step}`
+  const nextLane = { ...lane, [bucket]: { ...lane[bucket], [position]: { ...lane[bucket][position], [key]: value } } }
+  return { ...project, channelAutomation: { ...project.channelAutomation, [channel]: nextLane } }
+}
+
+export function clearAutomationPosition(project: ProjectState, channel: AutomationChannel, scope: Exclude<AutomationScope, 'global'>, bar: number, step: number): ProjectState {
+  const lane = project.channelAutomation[channel]
+  if (!lane) return project
+  const bucket = scope === 'bar' ? 'bars' : 'steps'
+  const position = scope === 'bar' ? String(bar) : `${bar}:${step}`
+  const entries = { ...lane[bucket] }
+  delete entries[position]
+  return { ...project, channelAutomation: { ...project.channelAutomation, [channel]: { ...lane, [bucket]: entries } } }
+}
+
+export function applyChannelAutomation(project: ProjectState, bar: number, step: number): ProjectState {
+  let result = project
+  for (const channel of Object.keys(project.channelAutomation) as AutomationChannel[]) {
+    const lane = project.channelAutomation[channel]
+    if (!lane) continue
+    for (const patch of [lane.bars[String(bar)], lane.steps[`${bar}:${step}`]]) {
+      for (const [key, value] of Object.entries(patch ?? {})) result = withChannelValue(result, channel, key, value)
+    }
+  }
+  return result
+}
+
+/** Keeps automation attached to musical bars when arrangement bars move. */
+export function shiftAutomationBars(project: ProjectState, at: number, delta: 1 | -1): ProjectState {
+  const channelAutomation: ChannelAutomation = {}
+  for (const channel of Object.keys(project.channelAutomation) as AutomationChannel[]) {
+    const lane = project.channelAutomation[channel]
+    if (!lane) continue
+    const shift = (entries: Record<string, Record<string, AutomationValue>>, steps: boolean) => Object.fromEntries(
+      Object.entries(entries).flatMap(([position, values]) => {
+        const [barPart, stepPart] = position.split(':')
+        const bar = Number(barPart)
+        if (!Number.isInteger(bar) || bar < 0 || (delta === -1 && bar === at)) return []
+        const moved = bar >= at + (delta === -1 ? 1 : 0) ? bar + delta : bar
+        return [[steps ? `${moved}:${stepPart}` : String(moved), values]]
+      }),
+    )
+    channelAutomation[channel] = { bars: shift(lane.bars, false), steps: shift(lane.steps, true) }
+  }
+  return { ...project, channelAutomation }
+}
+
 export type ProjectState = {
   version: 1
   /** One-time migration marker for bundled, removable starter audio. */
@@ -238,6 +349,8 @@ export type ProjectState = {
   performance: PerformanceState
   decks: [DeckState, DeckState]
   sampler: SamplerState
+  /** Non-destructive channel snapshots: base settings, then bar, then step. */
+  channelAutomation: ChannelAutomation
 }
 
 const bassSteps = (root: number, variant = 0): BassStep[] => {
@@ -471,6 +584,7 @@ export const createDefaultProject = (): ProjectState => {
     { name: 'COMPUS STARTER', assetId: 'builtin:loop_compus.ogg', gain: 86, pitch: 0, rate: 1, filter: 0, cuePoint: 0, loop: true, loopStart: 0, loopEnd: 0, muted: false, solo: false, pan: 8, delay: 0, reverb: 0, eqLow: 50, eqMid: 50, eqHigh: 50 },
   ],
   sampler: { slots: makeStarterSamplerSlots(), activeBank: 0, selectedSlot: 0, sixteenLevels: 'off', noteRepeat: 0, level: 82, pan: 0, delay: 12, reverb: 10, muted: false, solo: false, eqLow: 50, eqMid: 50, eqHigh: 50, drive: 8, bitDepth: 100, sampleRate: 100, texture: 0 },
+  channelAutomation: {},
 })
 }
 
@@ -498,6 +612,7 @@ export function hydrateProject(candidate: Partial<ProjectState> | null | undefin
       patterns: candidate.rhythms?.[index]?.patterns ?? rhythm.patterns,
     })) as [RhythmMachineState, RhythmMachineState],
     waveDesigner: { ...fallback.waveDesigner, ...(candidate.waveDesigner ?? {}), steps: candidate.waveDesigner?.steps ?? fallback.waveDesigner.steps },
+    channelAutomation: candidate.channelAutomation ?? {},
     songChain,
     songScenes: normalizeSongScenes(candidate.songScenes, songChain.length),
     performance: { ...fallback.performance, ...(candidate.performance ?? {}) },

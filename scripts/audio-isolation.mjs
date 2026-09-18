@@ -43,7 +43,7 @@ try {
       }
       return { attack: rms(0.06, 0.1), earlyTail: rms(0.18, 0.3), tail: rms(0.48, 0.75) }
     }
-    return {
+    const levels = {
       dry: await render(false, false),
       bypassedRepeat: await render(false, true),
       audibleRepeat: await render(true, true),
@@ -55,6 +55,12 @@ try {
       bass02Reverb: await render(true, false, 1, 0, 70),
       bass01Bypassed: await render(false, false, 0, 70, 70),
     }
+    project.bass[0].delay = 80
+    levels.bass01ChannelEcho = await render(true, false, 0, 70)
+    project.bass[0].delay = 0
+    project.channelAutomation = { 'bass-0': { bars: {}, steps: { '0:0': { muted: true } } } }
+    levels.bass01AutomatedOff = await render(false, false, 0)
+    return levels
   })
   console.log('BASS_01_C3_ISOLATION', levels)
   if (levels.dry.attack < 0.001) throw new Error('Isolated C3 note was not audible')
@@ -65,6 +71,8 @@ try {
     if (levels[`${name}Reverb`].tail < levels[`${name}Dry`].tail * 3 + 0.00015) throw new Error(`${name} received no global reverb with channel send at zero`)
   }
   if (levels.bass01Bypassed.tail > levels.bass01Dry.tail * 1.5 + 0.0005) throw new Error('Global FX bypass leaked echo or reverb')
+  if (levels.bass01ChannelEcho.earlyTail < levels.bass01Echo.earlyTail * 1.5) throw new Error('Channel echo slider did not increase its own send')
+  if (levels.bass01AutomatedOff.attack > 0.0005) throw new Error('Step automation did not affect offline playback')
 } finally {
   await browser.close()
 }
