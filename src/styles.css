@@ -425,6 +425,14 @@ footer { max-width: 1780px; display: flex; justify-content: space-between; margi
 .deck-file-actions button.restore-needed{color:#172005;background:var(--acid);border-color:#bce95b;box-shadow:0 0 8px #baff3044}
 .sampler-bay header .machine-reset-actions{display:flex;margin-left:auto}
 .sampler-bay header .machine-reset-actions+p{margin-left:14px}
+.demo-loader { display:grid; gap:7px; margin-top:12px; padding:12px; background:linear-gradient(120deg,#182218,#0b100d); border:1px solid #4d6543; box-shadow:inset 0 1px #a5d57324; }
+.demo-loader label { color:var(--acid); font:800 10px 'Chakra Petch'; letter-spacing:.15em; }
+.demo-loader select { width:100%; min-height:38px; padding:7px 9px; color:#edf6e8; background:#111a12; border:1px solid #779060; font:700 11px 'Chakra Petch'; cursor:pointer; }
+.demo-loader select:focus-visible, .demo-loader button:focus-visible { outline:2px solid var(--amber); outline-offset:2px; }
+.demo-loader p { min-height:27px; margin:0; color:#bccdb8; font:10px/1.35 'Chakra Petch'; }
+.demo-loader button { min-height:40px; display:flex; align-items:center; justify-content:center; gap:8px; color:#172006; background:var(--acid); border:1px solid #c9f56b; font:800 10px 'Chakra Petch'; letter-spacing:.05em; }
+.demo-loader button svg { width:15px; }
+.projects-popover { max-height:calc(100vh - 145px); overflow-y:auto; }
 #master-rack { scroll-margin-top:145px; }
 
 /* Keep small hardware labels legible against the charcoal panels. */

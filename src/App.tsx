@@ -4,11 +4,12 @@ import {
   Minus, Pause, Play, Plus, Radio, Redo2, RotateCcw, Save, SkipBack,
   SkipForward, Square, Trash2, Undo2, Upload, Waves,
 } from 'lucide-react'
-import { createDefaultProject, drumNames, fxPadNames, hydrateProject, normalizeSongScenes, restoreBassDefaults, restoreDeckDefaults, restoreRhythmDefaults, restoreSamplerDefaults, restoreWaveDefaults, transferWaveToBass, wipeBassPattern, wipeRhythmPattern, wipeSamplerPattern, wipeWavePattern, type BassVoice, type DeckState, type DesignerWaveform, type DrumName, type DrumStep, type ProjectState, type RhythmMachineState, type SamplerState, type WaveDesignerState } from './model'
+import { drumNames, fxPadNames, hydrateProject, normalizeSongScenes, restoreBassDefaults, restoreDeckDefaults, restoreRhythmDefaults, restoreSamplerDefaults, restoreWaveDefaults, transferWaveToBass, wipeBassPattern, wipeRhythmPattern, wipeSamplerPattern, wipeWavePattern, type BassVoice, type DeckState, type DesignerWaveform, type DrumName, type DrumStep, type ProjectState, type RhythmMachineState, type SamplerState, type WaveDesignerState } from './model'
 import { GrooveEngine, isMixerChannelAudible, type DeckPlaybackState } from './audio/engine'
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectSummary } from './state/projectStore'
 import { deleteAudioAsset, restoreProjectAudioAssets, saveAudioAsset } from './state/audioAssetStore'
-import { DUBSTEP_SONG_CHAIN, applyDubstepBarAutomation, createDubstepDemoProject } from './demo/dubstepDemo'
+import { DUBSTEP_SONG_CHAIN, applyDubstepBarAutomation } from './demo/dubstepDemo'
+import { createDemoProject, demoCatalog, type DemoId } from './demo/catalog'
 
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 const blackKeyPositions = [12.5, 25, 50, 62.5, 75]
@@ -384,7 +385,14 @@ function applySongPosition(project: ProjectState, barIndex: number): ProjectStat
 
 function SongStrip({ project, bar, onJump, onCapture, onInsert, onRemove, onAddScene, onRemoveScene, onRenameScene }: { project: ProjectState; bar: number; onJump: (bar: number) => void; onCapture: (bar: number) => void; onInsert: (bar: number) => void; onRemove: (bar: number) => void; onAddScene: (bar: number) => void; onRemoveScene: (index: number) => void; onRenameScene: (index: number, name: string) => void }) {
   const track = useRef<HTMLDivElement>(null)
-  useEffect(() => { track.current?.querySelector('.song-bar.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }) }, [bar])
+  useEffect(() => {
+    const strip = track.current
+    const active = strip?.querySelector<HTMLElement>('.song-bar.active')
+    if (!strip || !active) return
+    const stripBounds = strip.getBoundingClientRect()
+    const activeBounds = active.getBoundingClientRect()
+    strip.scrollBy({ left: activeBounds.left + activeBounds.width / 2 - stripBounds.left - stripBounds.width / 2, behavior: 'smooth' })
+  }, [bar])
   const groups = Array.from({ length: Math.ceil(project.songChain.length / 8) }, (_, group) => project.songChain.slice(group * 8, group * 8 + 8))
   const activeScene = project.songScenes.reduce((active, scene, index) => scene.start < bar ? index : active, 0)
   const isMarker = project.songScenes[activeScene]?.start === bar - 1
@@ -513,7 +521,7 @@ function PerformanceDeck({ project, bar, update, triggerPad, launchScene, captur
 
 export default function App() {
   const [project, setProject] = useState<ProjectState>(() => {
-    try { const saved = JSON.parse(localStorage.getItem('reborn338.autosave') || 'null') as Partial<ProjectState> | null; return saved?.version === 1 ? hydrateProject(saved) : createDubstepDemoProject(createDefaultProject()) } catch { return createDubstepDemoProject(createDefaultProject()) }
+    try { const saved = JSON.parse(localStorage.getItem('reborn338.autosave') || 'null') as Partial<ProjectState> | null; return saved?.version === 1 ? hydrateProject(saved) : createDemoProject('abyssal') } catch { return createDemoProject('abyssal') }
   })
   const [playing, setPlaying] = useState(false)
   const [recording, setRecording] = useState(false)
@@ -526,6 +534,7 @@ export default function App() {
   const [keyboardOctave, setKeyboardOctave] = useState(0)
   const [keyboardPressed, setKeyboardPressed] = useState<Set<string>>(() => new Set())
   const [savedProjects, setSavedProjects] = useState<ProjectSummary[]>([])
+  const [selectedDemo, setSelectedDemo] = useState<DemoId>('abyssal')
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>()
   const [toast, setToast] = useState('')
   const [meterLevel, setMeterLevel] = useState(0)
@@ -726,22 +735,16 @@ export default function App() {
     const next = future.current.pop(); if (!next) return
     history.current.push(project); setProject(next); notify('REDONE')
   }
-  const reset = () => {
-    const next = createDubstepDemoProject(createDefaultProject())
-    commit(next); setBar(1); barRef.current = 1; engineRef.current?.setSongPosition(0); setActiveProjectId(undefined)
-    void restoreAudioFor(next)
-    notify('48-BAR DUBSTEP DEMO + STARTER AUDIO LOADED')
-  }
   const openProjects = () => {
     setSavedProjects(listProjects())
     setShowProjects((visible) => !visible)
   }
   const storeProject = (asCopy = false) => {
-    const id = asCopy ? crypto.randomUUID() : activeProjectId
+    const id = asCopy || !activeProjectId ? crypto.randomUUID() : activeProjectId
     saveProject(project, id)
     const updated = listProjects()
     setSavedProjects(updated)
-    setActiveProjectId(updated[0]?.id)
+    setActiveProjectId(id)
     notify(asCopy ? 'PROJECT COPY SAVED' : 'PROJECT SAVED')
   }
   const restoreAudioFor = async (next: ProjectState) => {
@@ -751,6 +754,23 @@ export default function App() {
     project.sampler.slots.forEach((_, index) => engine.unloadSample(index))
     const result = await restoreProjectAudioAssets(next, engine)
     if (result.missing.length) notify(`${result.missing.length} AUDIO FILE${result.missing.length === 1 ? '' : 'S'} MISSING`)
+  }
+  const loadSession = (next: ProjectState, savedId?: string, message = 'SONG + SOUND SETTINGS LOADED') => {
+    const engine = engineRef.current
+    engine?.stop()
+    engine?.setProject(next)
+    engine?.setSongPosition(0)
+    setPlaying(false)
+    setRecording(false)
+    setCurrentStep(-1)
+    seenDownbeat.current = false
+    setBar(1)
+    barRef.current = 1
+    commit(next)
+    setActiveProjectId(savedId)
+    setShowProjects(false)
+    void restoreAudioFor(next)
+    notify(message)
   }
   const jumpToBar = (targetBar: number) => {
     setBar(targetBar)
@@ -904,7 +924,7 @@ export default function App() {
       const imported = JSON.parse(await file.text()) as ProjectState
       if (imported.version !== 1 || !imported.bass) throw new Error('Invalid project')
       const next = hydrateProject(imported)
-      commit(next); void restoreAudioFor(next); setShowProjects(false); notify('PROJECT LOADED')
+      loadSession(next, undefined, 'IMPORTED SONG + SETTINGS LOADED')
     } catch { notify('INVALID PROJECT FILE') }
     event.target.value = ''
   }
@@ -913,7 +933,7 @@ export default function App() {
     <main className={`workstation-shell ${performanceView ? 'performance-view' : ''}`}>
       <div className="ambient-glow" />
       <header className="transport-panel">
-        <div className="product-mark"><span>ARC FOUNDRY LABS</span><strong>RE:BORN <em>338</em></strong><small>ACID PERFORMANCE WORKSTATION / WEB EDITION</small></div>
+        <div className="product-mark"><span>by DAWID.AI</span><strong>RE:BORN <em>338</em></strong><small>ACID PERFORMANCE WORKSTATION / WEB EDITION</small></div>
         <div className="mode-switch"><span>MODE</span><button aria-pressed={project.mode === 'pattern'} className={project.mode === 'pattern' ? 'active' : ''} onClick={() => update({ mode: 'pattern' })}>PATTERN</button><button aria-pressed={project.mode === 'song'} className={project.mode === 'song' ? 'active' : ''} onClick={() => update({ mode: 'song' })}>SONG</button></div>
         <div className="transport-controls">
           <IconButton label="Previous bar" onClick={() => jumpToBar(Math.max(1, bar - 1))}><SkipBack /></IconButton>
@@ -1021,11 +1041,11 @@ export default function App() {
         <button onClick={() => storeProject(true)}><Save /> SAVE AS NEW COPY</button>
         <div className="saved-list">
           {savedProjects.length === 0 && <span>NO NAMED PROJECTS YET</span>}
-          {savedProjects.map((summary) => <div key={summary.id} className={activeProjectId === summary.id ? 'active' : ''}><button onClick={() => { const saved = loadProject(summary.id); if (saved) { const next = hydrateProject(saved); commit(next); void restoreAudioFor(next); setActiveProjectId(summary.id); setShowProjects(false); notify('PROJECT LOADED') } }}><strong>{summary.name}</strong><small>{new Date(summary.updatedAt).toLocaleDateString()}</small></button><button aria-label={`Delete ${summary.name}`} onClick={() => { deleteProject(summary.id); setSavedProjects(listProjects()); if (activeProjectId === summary.id) setActiveProjectId(undefined); notify('PROJECT DELETED') }}>×</button></div>)}
+          {savedProjects.map((summary) => <div key={summary.id} className={activeProjectId === summary.id ? 'active' : ''}><button onClick={() => { const saved = loadProject(summary.id); if (saved) loadSession(hydrateProject(saved), summary.id) }}><strong>{summary.name}</strong><small>{new Date(summary.updatedAt).toLocaleDateString()}</small></button><button aria-label={`Delete ${summary.name}`} onClick={() => { deleteProject(summary.id); setSavedProjects(listProjects()); if (activeProjectId === summary.id) setActiveProjectId(undefined); notify('PROJECT DELETED') }}>×</button></div>)}
         </div>
         <button onClick={() => fileInput.current?.click()}><Upload /> IMPORT PROJECT</button>
         <button onClick={() => saveBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.rb338.json`)}><FileDown /> EXPORT PROJECT</button>
-        <button className="reset-action" onClick={reset}><RotateCcw /> LOAD DUBSTEP DEMO</button>
+        <div className="demo-loader"><label htmlFor="demo-song-select">DEMO SONG</label><select id="demo-song-select" value={selectedDemo} onChange={(event) => setSelectedDemo(event.target.value as DemoId)}>{demoCatalog.map((demo) => <option key={demo.id} value={demo.id}>{demo.label}</option>)}</select><p>{demoCatalog.find((demo) => demo.id === selectedDemo)?.detail}</p><button className="reset-action" onClick={() => loadSession(createDemoProject(selectedDemo), undefined, 'DEMO SONG + ORIGINAL SETTINGS LOADED')}><RotateCcw /> LOAD SELECTED DEMO</button></div>
         <input ref={fileInput} hidden type="file" accept=".json,.rb338" onChange={(event) => void importProject(event)} />
         <small>Projects and autosaves stay on this device.</small>
       </div>}
@@ -1041,7 +1061,7 @@ export default function App() {
           <section><h3>6 · SAMPLE & DJ</h3><p>Decks A/B start with playable loops. A red deck status identifies mute, Solo blocking, zero gain, or a crossfader cut; <b>Restore Sound</b> repairs that routing. Amen Break is ready for Auto 4/8 chopping and Warp.</p></section>
           <section><h3>7 · SAVE & EXPORT</h3><p>Autosave and named projects stay locally in this browser. Project export preserves settings and user-audio references on this device; WAV Export renders the full song or a four-bar pattern loop.</p></section>
           <section><h3>GLOBAL SOUND</h3><p>In Mix, All Echo FX OFF bypasses stereo delay, reverb, and Live Beat Repeat, including audible tails. The demo starts dry. Soften tames harsh upper mids and highs; Brightness, Drive, and Glue shape the full mix. Manual sound edits turn Demo Auto off so bar changes cannot undo them.</p></section>
-          <section><h3>FAST START</h3><p>Press <kbd>Space</kbd> to hear the 48-bar demo, open Media for loops and chops, then use Live for scenes, twelve performance FX, repeat, and crossfading.</p></section>
+          <section><h3>FAST START</h3><p>Press <kbd>Space</kbd> to hear the current song. In Projects, choose a demo and Load Selected Demo for a fresh complete song and sound setup. These are original tributes, not soundtrack recordings.</p></section>
         </div>
         <p className="browser-note">Audio wakes after your first click or key press, as required by modern browsers.</p>
       </div>}

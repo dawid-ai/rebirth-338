@@ -2,6 +2,8 @@
 
 A browser-based music workstation inspired by the original ReBirth desktop software. Make acid bass lines, drum patterns, sampled beats, and full song arrangements—all in your browser.
 
+Three loadable demos include an original dubstep arrangement and original big-beat and acid-techno tributes. They do not contain commercial soundtrack recordings.
+
 [Open the live workstation](https://dawid-ai.github.io/rebirth-338/)
 
 ## Run locally

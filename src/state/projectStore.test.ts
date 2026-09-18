@@ -29,6 +29,24 @@ describe('project persistence', () => {
     expect(parseProject(serializeProject(project))).toEqual(project)
   })
 
+  it('stores the full sound and arrangement snapshot, not only pattern steps', () => {
+    const project = createDefaultProject()
+    project.tempo = 137
+    project.masterDrive = 29
+    project.delayMix = 12
+    project.effectsEnabled = false
+    project.bass[0].cutoff = 81
+    project.rhythms[1].drums.snare.reverb = 27
+    project.waveDesigner.spread = 45
+    project.sampler.texture = 33
+    project.decks[0].gain = 42
+    project.songChain[3].bass[0] = 4
+    saveProject(project, 'complete-song')
+    project.bass[0].cutoff = 2
+    project.songChain[3].bass[0] = 1
+    expect(loadProject('complete-song')).toEqual({ ...project, bass: [{ ...project.bass[0], cutoff: 81 }, project.bass[1]], songChain: project.songChain.map((cue, index) => index === 3 ? { ...cue, bass: [4, cue.bass[1]] } : cue) })
+  })
+
   it('rejects unrelated JSON', () => {
     expect(() => parseProject('{"hello":"world"}')).toThrow(/valid ReBirth 338 project/i)
   })
