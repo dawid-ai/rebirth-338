@@ -81,6 +81,10 @@ export function samplePlaybackRegion(slot: Pick<SamplerSlot, 'trimStart' | 'trim
 
 class AudioGraph {
   private readonly masterInput: GainNode
+  /** Dry program bus: global FX sends tap this before wet returns, avoiding feedback loops. */
+  private readonly dryMix: GainNode
+  private readonly globalDelaySend: GainNode
+  private readonly globalReverbSend: GainNode
   private readonly masterHeadroom: GainNode
   private readonly masterGain: GainNode
   private readonly limiter: WaveShaperNode
@@ -125,6 +129,12 @@ class AudioGraph {
     private project: ProjectState,
   ) {
     this.masterInput = context.createGain()
+    this.dryMix = context.createGain()
+    this.globalDelaySend = context.createGain()
+    this.globalReverbSend = context.createGain()
+    this.globalDelaySend.gain.value = 0
+    this.globalReverbSend.gain.value = 0
+    this.dryMix.connect(this.masterInput)
     this.masterHeadroom = context.createGain()
     this.masterHeadroom.gain.value = 0.76
     this.drive = context.createWaveShaper()
@@ -168,6 +178,7 @@ class AudioGraph {
     this.delay = context.createDelay(2)
     this.delayFeedback = context.createGain()
     this.delayWet = context.createGain()
+    this.dryMix.connect(this.globalDelaySend).connect(this.delayInput)
     this.delayInput.connect(this.delay)
     this.delay.connect(this.delayFeedback).connect(this.delay)
     this.delay.connect(this.delayWet).connect(this.masterInput)
@@ -178,6 +189,7 @@ class AudioGraph {
     this.reverbTone = context.createBiquadFilter()
     this.reverbTone.type = 'lowpass'
     this.reverbWet = context.createGain()
+    this.dryMix.connect(this.globalReverbSend).connect(this.reverbInput)
     this.reverbInput.connect(convolver).connect(this.reverbTone).connect(this.reverbWet).connect(this.masterInput)
     this.noiseBuffer = makeNoise(context, 2)
     this.metallicBuffer = makeMetallicCymbal(context, 2)
@@ -194,7 +206,7 @@ class AudioGraph {
       mid.Q.value = 0.72
       high.type = 'highshelf'
       high.frequency.value = 6800
-      input.connect(low).connect(mid).connect(high).connect(output).connect(this.masterInput)
+      input.connect(low).connect(mid).connect(high).connect(output).connect(this.dryMix)
       return { input, low, mid, high, output }
     })
     const deckNodes = [0, 1].map(() => {
@@ -213,7 +225,7 @@ class AudioGraph {
       low.type = 'lowshelf'; low.frequency.value = 130
       mid.type = 'peaking'; mid.frequency.value = 1050; mid.Q.value = 0.72
       high.type = 'highshelf'; high.frequency.value = 6800
-      input.connect(highpass).connect(lowpass).connect(low).connect(mid).connect(high).connect(panner).connect(output).connect(this.masterInput)
+      input.connect(highpass).connect(lowpass).connect(low).connect(mid).connect(high).connect(panner).connect(output).connect(this.dryMix)
       output.connect(delaySend).connect(this.delayInput)
       output.connect(reverbSend).connect(this.reverbInput)
       return { input, highpass, lowpass, low, mid, high, panner, output, delaySend, reverbSend }
@@ -251,9 +263,13 @@ class AudioGraph {
     this.compressor.attack.setTargetAtTime(0.022 - compression * 0.017, now, 0.02)
     this.compressor.release.setTargetAtTime(0.11 + compression * 0.22, now, 0.02)
     this.delay.delayTime.setTargetAtTime(tempoDelaySeconds(project.tempo, project.delayTime), now, 0.02)
-    this.delayInput.gain.setTargetAtTime(project.effectsEnabled ? 1 : 0, now, 0.01)
-    this.reverbInput.gain.setTargetAtTime(project.effectsEnabled ? 1 : 0, now, 0.01)
-    this.delayFeedback.gain.setTargetAtTime(project.effectsEnabled ? unit(project.delayFeedback) * 0.72 : 0, now, 0.02)
+    const echoActive = project.effectsEnabled && project.delayMix > 0
+    const reverbActive = project.effectsEnabled && project.reverbMix > 0
+    this.delayInput.gain.setTargetAtTime(echoActive ? 1 : 0, now, 0.01)
+    this.reverbInput.gain.setTargetAtTime(reverbActive ? 1 : 0, now, 0.01)
+    this.globalDelaySend.gain.setTargetAtTime(echoActive ? 0.3 : 0, now, 0.01)
+    this.globalReverbSend.gain.setTargetAtTime(reverbActive ? 0.24 : 0, now, 0.01)
+    this.delayFeedback.gain.setTargetAtTime(echoActive ? unit(project.delayFeedback) * 0.72 : 0, now, 0.02)
     this.delayWet.gain.setTargetAtTime(project.effectsEnabled ? unit(project.delayMix) * 0.82 : 0, now, 0.01)
     this.reverbWet.gain.setTargetAtTime(project.effectsEnabled ? unit(project.reverbMix) * 0.72 : 0, now, 0.01)
     this.reverbTone.frequency.setTargetAtTime(1200 + Math.pow(unit(project.reverbTone), 1.5) * 13_000, now, 0.02)
@@ -472,7 +488,7 @@ class AudioGraph {
       sendMultiplier = channelIndex < 2 ? deckA : channelIndex < 4 ? deckB : 1
       source.connect(this.sourceBuses[channelIndex].input)
     } else {
-      source.connect(this.masterInput)
+      source.connect(this.dryMix)
     }
     if (delayAmount > 0) {
       const send = this.context.createGain()

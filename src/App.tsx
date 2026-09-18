@@ -348,8 +348,8 @@ function ChannelStrip({ label, level, pan, delay, reverb, eq, muted, solo, onLev
     <div className="channel-eq">{(['LO', 'MID', 'HI'] as const).map((name, index) => <label key={name}><span>{name}</span><input aria-label={`${label} ${name} EQ`} type="range" min="0" max="100" value={eq[index]} onChange={(event) => onEq(index as 0 | 1 | 2, Number(event.target.value))} /></label>)}</div>
     <input className="channel-fader" aria-label={`${label} level`} type="range" min="0" max="100" value={level} onChange={(event) => onLevel(Number(event.target.value))} />
     <output>{Math.round(level)}</output>
-    <label className="channel-send"><span>ECHO</span><input aria-label={`${label} echo send`} type="range" min="0" max="100" value={delay} onChange={(event) => onDelay(Number(event.target.value))} /></label>
-    <label className="channel-send"><span>SPACE</span><input aria-label={`${label} reverb send`} type="range" min="0" max="100" value={reverb} onChange={(event) => onReverb(Number(event.target.value))} /></label>
+    <label className="channel-send" title="Additional channel echo on top of the global mix"><span>ECHO+</span><input aria-label={`${label} echo send`} type="range" min="0" max="100" value={delay} onChange={(event) => onDelay(Number(event.target.value))} /></label>
+    <label className="channel-send" title="Additional channel reverb on top of the global mix"><span>SPACE+</span><input aria-label={`${label} reverb send`} type="range" min="0" max="100" value={reverb} onChange={(event) => onReverb(Number(event.target.value))} /></label>
     <div className="channel-buttons"><button aria-label={`Mute ${label}`} aria-pressed={muted} className={muted ? 'active mute' : ''} onClick={onMute}>M</button><button aria-label={`Solo ${label}`} aria-pressed={solo} className={solo ? 'active solo' : ''} onClick={onSolo}>S</button></div>
   </div>
 }
@@ -991,7 +991,7 @@ export default function App() {
                 ['DRIVE', 'masterDrive'], ['GLUE', 'compressor'],
               ] as const).map(([label, key]) => <label key={key}><span>{label}</span><input aria-label={`Global ${label.toLowerCase()}`} type="range" min="0" max="100" value={project[key]} onChange={(event) => update({ [key]: Number(event.target.value), demoAutoMix: false })} /><output>{project[key]}</output></label>)}
             </div>
-            <p>All Echo FX bypasses delay, reverb, and Beat Repeat. Manual edits stay put; Demo Auto restores bar-by-bar tone changes.</p>
+            <p>Echo and Reverb Mix affect every audible channel. Mixer ECHO+ and SPACE+ add extra send. All Echo FX bypasses delay, reverb, and Beat Repeat.</p>
           </section>
           <div className="source-mixer">
             <div className="module-title"><Gauge /> EIGHT CHANNEL MIXER</div>
@@ -1060,7 +1060,7 @@ export default function App() {
           <section><h3>5 · DESIGN & MIX</h3><p>Wave Designer is its own synth. <b>Load Into 303</b> copies its oscillator/tone into that 303 while keeping the acid sequence. <b>Smooth</b> reduces master saturation and gently tames harsh upper mids/highs; Raw keeps the brighter driven sound.</p></section>
           <section><h3>6 · SAMPLE & DJ</h3><p>Decks A/B start with playable loops. A red deck status identifies mute, Solo blocking, zero gain, or a crossfader cut; <b>Restore Sound</b> repairs that routing. Amen Break is ready for Auto 4/8 chopping and Warp.</p></section>
           <section><h3>7 · SAVE & EXPORT</h3><p>Autosave and named projects stay locally in this browser. Project export preserves settings and user-audio references on this device; WAV Export renders the full song or a four-bar pattern loop.</p></section>
-          <section><h3>GLOBAL SOUND</h3><p>In Mix, All Echo FX OFF bypasses stereo delay, reverb, and Live Beat Repeat, including audible tails. The demo starts dry. Soften tames harsh upper mids and highs; Brightness, Drive, and Glue shape the full mix. Manual sound edits turn Demo Auto off so bar changes cannot undo them.</p></section>
+          <section><h3>GLOBAL SOUND</h3><p>Echo and Reverb Mix act on every audible channel; mixer ECHO+ and SPACE+ add extra send for that channel. All Echo FX OFF bypasses delay, reverb, and Live Beat Repeat. Soften tames harshness, while Brightness, Drive, and Glue shape the full mix.</p></section>
           <section><h3>FAST START</h3><p>Press <kbd>Space</kbd> to hear the current song. In Projects, choose a demo and Load Selected Demo for a fresh complete song and sound setup. These are original tributes, not soundtrack recordings.</p></section>
         </div>
         <p className="browser-note">Audio wakes after your first click or key press, as required by modern browsers.</p>
