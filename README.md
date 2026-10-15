@@ -17,4 +17,12 @@ Open the URL shown by Vite and click Play to start audio. Projects and imported 
 
 Run `npm test` for unit tests and `npm run build` to check the production build. Pushes to `main` deploy to GitHub Pages automatically.
 
-RE:BORN 338 is an independent project and is not affiliated with the original ReBirth software or its creators. Bundled starter audio is CC0; see [its license](public/audio/starter/LICENSE.md).
+### Desktop edition (in development)
+
+```bash
+npm run desktop
+```
+
+This builds and starts the Electron edition. It saves projects as `.reborn` folders with their audio, packs them into a single `.rebornpack` file to share, keeps a recent-files list, and recovers unsaved work after a crash. The v2 plan is in [reBORNv2.md](reBORNv2.md).
+
+RE:BORN 338 is an independent project and is not affiliated with the original ReBirth software or its creators. Bundled starter audio is CC0; see [its license](apps/web/public/audio/starter/LICENSE.md).

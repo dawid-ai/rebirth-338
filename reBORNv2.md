@@ -546,6 +546,17 @@ Status (2026-10-15): the prototypes live in `prototypes/phase0/` (`npm run proto
 
 Exit when an existing project opens, plays, saves and exports identically in desktop and web builds.
 
+Status (2026-10-15): exit criterion met. `scripts/desktop-smoke.mjs` plays, saves to a `.reborn` folder, reopens, exports, and packs a project. It then recovers unsaved edits after a forced crash and confirms the desktop and web builds export WAVs with identical format and length. Delivered:
+
+- Workspaces: `packages/studio-core`, `packages/audio-engine`, `apps/web`, and `apps/desktop`.
+- `studio-core` holds the model, migrations, the `.reborn` document format, demos, the bridge contract, and the undo `History` the v1 UI now uses. The typed command registry is still Phase 5 work.
+- The desktop shell serves the renderer from a privileged `app://` scheme with a sandboxed, context-isolated preload. Every IPC sender is checked against that origin.
+- Projects save atomically, and unchanged audio isn't rewritten. **Pack Project** writes a store-only ZIP as a cancellable background job, and `.rebornpack` and v1 `.rb338.json` files open too.
+- Recent files, crash recovery, and a rotating log live in the user-data folder, never in projects.
+- Fonts are bundled, so the app runs offline. This also removes the web edition's Google Fonts request.
+
+Open for later phases: installers, signing, and auto-update (Phase 7), a save prompt that saves before closing (it currently warns), streaming unpack for very large packs, and a content security policy for the renderer.
+
 ### Phase 2 — New shell and device editing
 
 - Implement design tokens and foundational components.

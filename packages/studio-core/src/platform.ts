@@ -46,10 +46,11 @@ export interface RecoveryState {
   savedAt: string
 }
 
-export type MenuCommand = 'new' | 'open' | 'open-recent' | 'save' | 'save-as' | 'pack' | 'export-wav' | 'undo' | 'redo'
+export type MenuCommand = 'new' | 'open-path' | 'save' | 'save-as' | 'pack' | 'export-wav' | 'undo' | 'redo'
 
 export interface MenuEvent {
   command: MenuCommand
+  /** Set for `open-path`: main already chose the project to open. */
   path?: string
 }
 
@@ -69,7 +70,7 @@ export type LogLevel = 'info' | 'warn' | 'error'
 
 export interface DesktopBridge {
   platform: 'desktop'
-  version: string
+  getVersion(): Promise<string>
   openProject(path?: string): Promise<OpenedProject | null>
   saveProject(request: SaveProjectRequest): Promise<SaveProjectResult | null>
   listRecent(): Promise<RecentProject[]>
@@ -98,4 +99,5 @@ export const IPC = {
   documentState: 'window:document-state',
   log: 'log:write',
   menu: 'menu:command',
+  version: 'app:version',
 } as const

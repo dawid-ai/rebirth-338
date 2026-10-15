@@ -8,7 +8,8 @@ import { applyChannelAutomation, automationKeys, automationValue, clearAutomatio
 import { GrooveEngine, isMixerChannelAudible, type DeckPlaybackState } from '@reborn/audio-engine'
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectSummary } from './state/projectStore'
 import { deleteAudioAsset, restoreProjectAudioAssets, saveAudioAsset } from './state/audioAssetStore'
-import { DUBSTEP_SONG_CHAIN, History, applyDubstepBarAutomation, createDemoProject, demoCatalog, type DemoId } from '@reborn/studio-core'
+import { DUBSTEP_SONG_CHAIN, History, applyDubstepBarAutomation, createDefaultProject, createDemoProject, demoCatalog, type DemoId, type JobUpdate } from '@reborn/studio-core'
+import { collectDesktopAssets, desktop, importDesktopAssets, isEditableTarget } from './desktop'
 
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 const blackKeyPositions = [12.5, 25, 50, 62.5, 75]
@@ -595,6 +596,16 @@ function PerformanceDeck({ project, bar, update, triggerPad, launchScene, captur
   </section>
 }
 
+interface DesktopActions {
+  saveToDisk: (saveAs: boolean) => Promise<string | null>
+  openFromDisk: (path?: string) => Promise<void>
+  newProject: () => void
+  packToDisk: () => Promise<void>
+  exportAudio: () => Promise<void>
+  undo: () => void
+  redo: () => void
+}
+
 export default function App() {
   const [project, setProject] = useState<ProjectState>(() => {
     try { const saved = JSON.parse(localStorage.getItem('reborn338.autosave') || 'null') as Partial<ProjectState> | null; return saved?.version === 1 ? hydrateProject(saved) : createDemoProject('abyssal') } catch { return createDemoProject('abyssal') }
@@ -624,6 +635,11 @@ export default function App() {
   const [gainReduction, setGainReduction] = useState(0)
   const [deckPlayback, setDeckPlayback] = useState<[DeckPlaybackState, DeckPlaybackState]>([emptyDeckPlayback, emptyDeckPlayback])
   const [exportProgress, setExportProgress] = useState<{ completed: number; total: number } | null>(null)
+  const [projectPath, setProjectPath] = useState<string | null>(null)
+  const [edited, setEdited] = useState(false)
+  const savedJson = useRef<string | null>(null)
+  const recoveryTimer = useRef(0)
+  const desktopActions = useRef<DesktopActions | null>(null)
   const engineRef = useRef<GrooveEngine | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const history = useRef(new History<ProjectState>(40))
@@ -675,10 +691,21 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (positionOnlyProjectRef.current !== project) engineRef.current?.setProject(project)
+    const positionOnly = positionOnlyProjectRef.current === project
+    if (!positionOnly) engineRef.current?.setProject(project)
     positionOnlyProjectRef.current = null
-    localStorage.setItem('reborn338.autosave', JSON.stringify(project))
+    const json = JSON.stringify(project)
+    localStorage.setItem('reborn338.autosave', json)
+    // Song playback rewrites pattern positions every bar; that is not an edit.
+    if (!desktop || positionOnly) return
+    setEdited(json !== savedJson.current)
+    window.clearTimeout(recoveryTimer.current)
+    recoveryTimer.current = window.setTimeout(() => desktop?.writeRecovery({ project, path: projectPath }), 1500)
   }, [project])
+
+  useEffect(() => {
+    desktop?.setDocumentState({ title: project.name.trim() || 'Untitled', edited })
+  }, [project.name, edited])
 
   useEffect(() => { localStorage.setItem('reborn338.workspace', focusMode ? 'focus' : 'overview') }, [focusMode])
 
@@ -1016,17 +1043,114 @@ export default function App() {
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => scrollToRack('media-bay')))
   }
 
+  const saveToDisk = async (saveAs: boolean): Promise<string | null> => {
+    if (!desktop) return null
+    const snapshot = projectRef.current
+    try {
+      const result = await desktop.saveProject({ path: projectPath, saveAs, project: snapshot, assets: await collectDesktopAssets(snapshot) })
+      if (!result) return null
+      savedJson.current = JSON.stringify(snapshot)
+      setProjectPath(result.path)
+      setEdited(JSON.stringify(projectRef.current) !== savedJson.current)
+      notify(result.writtenAssets ? `PROJECT SAVED · ${result.writtenAssets} AUDIO FILE${result.writtenAssets === 1 ? '' : 'S'} WRITTEN` : 'PROJECT SAVED')
+      return result.path
+    } catch (error) {
+      desktop.log('error', `Save failed: ${String(error)}`)
+      notify('SAVE FAILED · SEE LOG')
+      return null
+    }
+  }
+  const openFromDisk = async (path?: string) => {
+    if (!desktop) return
+    try {
+      const opened = await desktop.openProject(path)
+      if (!opened) return
+      await importDesktopAssets(opened)
+      const next = opened.document.project
+      savedJson.current = JSON.stringify(next)
+      setProjectPath(opened.path)
+      setEdited(false)
+      loadSession(next, undefined, opened.missing.length ? `PROJECT OPENED · ${opened.missing.length} AUDIO FILE${opened.missing.length === 1 ? '' : 'S'} MISSING` : 'PROJECT OPENED')
+    } catch (error) {
+      desktop.log('error', `Open failed: ${String(error)}`)
+      notify('COULD NOT OPEN PROJECT · SEE LOG')
+    }
+  }
+  const newProject = () => {
+    const next = createDefaultProject()
+    savedJson.current = JSON.stringify(next)
+    setProjectPath(null)
+    setEdited(false)
+    loadSession(next, undefined, 'NEW PROJECT')
+  }
+  const packToDisk = async () => {
+    if (!desktop) return
+    const path = !projectPath || edited ? await saveToDisk(false) : projectPath
+    if (!path) return
+    try {
+      if (await desktop.packProject(path)) notify('PACKING PROJECT…')
+    } catch (error) {
+      desktop.log('error', `Pack failed: ${String(error)}`)
+      notify('PACK FAILED · SEE LOG')
+    }
+  }
   const exportAudio = async () => {
     if (exportProgress) return
     setExportProgress({ completed: 0, total: project.mode === 'song' ? project.songChain.length : 4 })
     notify(project.mode === 'song' ? `RENDERING ${project.songChain.length}-BAR SONG…` : 'RENDERING 4-BAR LOOP…')
     try {
       const blob = await engineRef.current?.exportWav(project, { onProgress: (completed, total) => setExportProgress({ completed, total }) })
-      if (blob) saveBlob(blob, `${project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.wav`)
+      const filename = `${project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.wav`
+      if (blob && desktop) {
+        const target = await desktop.saveWav(await blob.arrayBuffer(), filename)
+        notify(target ? 'WAV EXPORTED' : 'WAV EXPORT CANCELLED')
+        return
+      }
+      if (blob) saveBlob(blob, filename)
       notify('WAV EXPORT READY')
     } catch { notify('AUDIO EXPORT FAILED') }
     finally { setExportProgress(null) }
   }
+
+  desktopActions.current = { saveToDisk, openFromDisk, newProject, packToDisk, exportAudio, undo, redo }
+
+  useEffect(() => {
+    if (!desktop) return
+    const bridge = desktop
+    void bridge.takeRecovery().then((state) => {
+      if (!state) return
+      savedJson.current = null
+      setProjectPath(state.path)
+      setEdited(true)
+      void restoreProjectAudioAssets(state.project, engineRef.current!).catch(() => undefined)
+      commit(hydrateProject(state.project))
+      notify('RECOVERED UNSAVED CHANGES FROM LAST SESSION')
+    })
+    const stopMenu = bridge.onMenuCommand(({ command, path }) => {
+      const actions = desktopActions.current
+      if (!actions) return
+      if (command === 'new') actions.newProject()
+      else if (command === 'open-path' && path) void actions.openFromDisk(path)
+      else if (command === 'save') void actions.saveToDisk(false)
+      else if (command === 'save-as') void actions.saveToDisk(true)
+      else if (command === 'pack') void actions.packToDisk()
+      else if (command === 'export-wav') void actions.exportAudio()
+      else if (command === 'undo' || command === 'redo') {
+        if (isEditableTarget(document.activeElement)) document.execCommand(command)
+        else if (command === 'undo') actions.undo()
+        else actions.redo()
+      }
+    })
+    const stopJobs = bridge.onJobUpdate((update: JobUpdate) => {
+      if (update.status === 'running') notify(`PACKING ${Math.round((update.completed / Math.max(1, update.total)) * 100)}%`)
+      else if (update.status === 'done') notify('PROJECT PACKED')
+      else notify(update.status === 'cancelled' ? 'PACKING CANCELLED' : `PACK FAILED · ${update.message ?? ''}`)
+    })
+    return () => {
+      stopMenu()
+      stopJobs()
+    }
+  }, [commit, notify])
 
   const importProject = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return
@@ -1043,7 +1167,7 @@ export default function App() {
     <main className={`workstation-shell ${performanceView ? 'performance-view' : ''} ${focusMode && !performanceView ? 'focus-mode' : ''}`}>
       <div className="ambient-glow" />
       <header className="transport-panel">
-        <div className="product-mark"><span>by DAWID.AI</span><strong>RE:BORN <em>338</em></strong><small>ACID PERFORMANCE WORKSTATION / WEB EDITION</small></div>
+        <div className="product-mark"><span>by DAWID.AI</span><strong>RE:BORN <em>338</em></strong><small>ACID PERFORMANCE WORKSTATION / {desktop ? 'DESKTOP' : 'WEB'} EDITION</small></div>
         <div className="mode-switch"><span>MODE</span><button aria-pressed={project.mode === 'pattern'} className={project.mode === 'pattern' ? 'active' : ''} onClick={() => update({ mode: 'pattern' })}>PATTERN</button><button aria-pressed={project.mode === 'song'} className={project.mode === 'song' ? 'active' : ''} onClick={() => update({ mode: 'song' })}>SONG</button></div>
         <div className="transport-controls">
           <IconButton label="Previous bar" onClick={() => jumpToBar(Math.max(1, bar - 1))}><SkipBack /></IconButton>
@@ -1157,13 +1281,20 @@ export default function App() {
         </aside>
       </div>
 
-      <footer><span>RE:BORN 338 / BUILD 01.09</span><span>DESIGNED FOR CHROME · EDGE · FIREFOX</span><span>LOCAL-FIRST · NO UPLOADS</span></footer>
+      <footer><span>RE:BORN 338 / BUILD 01.09</span><span>{desktop ? (projectPath ?? 'UNSAVED PROJECT') : 'DESIGNED FOR CHROME · EDGE · FIREFOX'}</span><span>LOCAL-FIRST · NO UPLOADS</span></footer>
 
       {showProjects && <div className="popover projects-popover">
         <header><div><span>PROJECT VAULT</span><strong>LOCAL SESSIONS</strong></div><button aria-label="Close projects" onClick={() => setShowProjects(false)}>×</button></header>
         <label className="project-name"><span>PROJECT NAME</span><input value={project.name} maxLength={32} onChange={(event) => update({ name: event.target.value.toUpperCase() })} /></label>
-        <button onClick={() => storeProject(false)}><Save /> SAVE CURRENT PROJECT</button>
-        <button onClick={() => storeProject(true)}><Save /> SAVE AS NEW COPY</button>
+        {desktop ? <>
+          <button onClick={() => void saveToDisk(false)}><Save /> SAVE TO PROJECT FOLDER</button>
+          <button onClick={() => void saveToDisk(true)}><Save /> SAVE AS…</button>
+          <button onClick={() => void openFromDisk()}><Upload /> OPEN PROJECT FOLDER…</button>
+          <button onClick={() => void packToDisk()}><FileDown /> PACK PROJECT…</button>
+        </> : <>
+          <button onClick={() => storeProject(false)}><Save /> SAVE CURRENT PROJECT</button>
+          <button onClick={() => storeProject(true)}><Save /> SAVE AS NEW COPY</button>
+        </>}
         <div className="saved-list">
           {savedProjects.length === 0 && <span>NO NAMED PROJECTS YET</span>}
           {savedProjects.map((summary) => <div key={summary.id} className={activeProjectId === summary.id ? 'active' : ''}><button onClick={() => { const saved = loadProject(summary.id); if (saved) loadSession(hydrateProject(saved), summary.id) }}><strong>{summary.name}</strong><small>{new Date(summary.updatedAt).toLocaleDateString()}</small></button><button aria-label={`Delete ${summary.name}`} onClick={() => { deleteProject(summary.id); setSavedProjects(listProjects()); if (activeProjectId === summary.id) setActiveProjectId(undefined); notify('PROJECT DELETED') }}>×</button></div>)}

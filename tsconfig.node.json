@@ -9,6 +9,7 @@
   },
   "include": [
     "apps/web/vite.config.ts",
-    "vite.proto.config.ts"
+    "vite.proto.config.ts",
+    "apps/desktop/vite.config.ts"
   ]
 }

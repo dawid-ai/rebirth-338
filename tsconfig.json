@@ -11,6 +11,9 @@
       "path": "./apps/web"
     },
     {
+      "path": "./apps/desktop"
+    },
+    {
       "path": "./tsconfig.node.json"
     },
     {
