@@ -1,6 +1,6 @@
 # RE:BORN v2 — Product and Implementation Plan
 
-> Status: direction approved 2026-10-15; Phase 0 in progress  
+> Status: direction approved 2026-10-15; Phase 0 complete, Phase 1 in progress  
 > Target: standalone Electron workstation with an optional web edition  
 > Core idea: preserve the immediacy of a groovebox while replacing the vertically stacked hardware replica with a software-native production environment.
 
@@ -533,7 +533,7 @@ Validate these tasks before implementation:
 
 Exit when the layout works at 1024, 1440 and 1920 widths and the primary tasks require no panel hunting.
 
-Status (2026-10-15): the prototypes live in `prototypes/phase0/` (`npm run proto`). `scripts/phase0-smoke.mjs` completes all six tasks and checks the layout at 1024 × 700, 1440 × 900 and 1920 × 1080. Exit still needs a hands-on review, plus approval of decisions 2 and 7 in section 16. Pads now use a right-hand MPC key grid so they never collide with `R` and `1–4`; see `prototypes/phase0/README.md`.
+Status (2026-10-15): the prototypes live in `prototypes/phase0/` (`npm run proto`). `scripts/phase0-smoke.mjs` completes all six tasks and checks the layout at 1024 × 700, 1440 × 900 and 1920 × 1080. Decisions 2 and 7 in section 16 are approved. Pads now use a right-hand MPC key grid so they never collide with `R` and `1–4`; see `prototypes/phase0/README.md`.
 
 ### Phase 1 — Shared core and Electron shell
 
@@ -646,12 +646,12 @@ Exit when an analysis job can fail, cancel or restart without affecting transpor
 Decided 2026-10-15:
 
 1. **Desktop-first.** Electron is the complete edition; the web edition may become a reduced feature set.
-2. **Fixed shell and four primary views.** Pending: approved through the Phase 0 prototypes.
+2. **Fixed shell and four primary views.** Approved 2026-10-15 after the Phase 0 prototypes completed all six tasks at 1024, 1440 and 1920 widths.
 3. **Project storage.** Both: a visible `.reborn` directory while editing, plus **Pack Project** for a single shareable archive.
 4. **First operating system.** Windows.
 5. **Agent providers.** Claude CLI, cloud API and local OpenAI-compatible servers all ship in the first agent release.
 6. **Ismail.** Starts as an optional analysis sidecar; RE:BORN's own engine stays the canonical sequencer and renderer.
-7. **Visual direction.** Pending: approved through the Phase 0 prototypes.
+7. **Visual direction.** Approved 2026-10-15 as prototyped: graphite field, bone editing surfaces, and color reserved for meaning (acid = playing, cyan = selection, amber = sends/modulation/pending, red = record/clip). Pads use a right-hand MPC key grid.
 
 ## 17. Definition of RE:BORN v2
 
