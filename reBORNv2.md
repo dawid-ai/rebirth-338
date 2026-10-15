@@ -1,6 +1,6 @@
 # RE:BORN v2 — Product and Implementation Plan
 
-> Status: proposed direction  
+> Status: direction approved 2026-10-15; Phase 0 in progress  
 > Target: standalone Electron workstation with an optional web edition  
 > Core idea: preserve the immediacy of a groovebox while replacing the vertically stacked hardware replica with a software-native production environment.
 
@@ -330,8 +330,14 @@ The adapter translates analysis into native suggestions. Ismail-generated sounds
 
 ### Provider support and privacy
 
-- Local OpenAI-compatible servers such as Ollama or LM Studio.
-- User-supplied cloud API providers.
+The first agent release ships three provider paths together:
+
+- **Claude CLI:** the installed `claude` executable run headless as a supervised child process, using the user's existing Claude login and reaching RE:BORN through its MCP server.
+- **Cloud API:** user-supplied API keys for the Claude API and other providers.
+- **Local:** OpenAI-compatible servers such as Ollama or LM Studio.
+
+Shared requirements:
+
 - External agents through MCP.
 - A provider-neutral internal message and tool format.
 - Secrets stored with the operating system credential facility.
@@ -635,13 +641,15 @@ Exit when an analysis job can fail, cancel or restart without affecting transpor
 
 ## 16. Decisions Required Before Coding v2
 
-1. Confirm that v2 is desktop-first and that the web edition may become a reduced feature set.
-2. Approve the fixed-shell architecture and four primary views.
-3. Decide whether v2 projects use a visible directory, a single packed file, or both as proposed.
-4. Select the first supported operating system; Windows-first is the lowest-risk path for the current environment.
-5. Decide whether local model support is required for the first agent release or may follow cloud/API support.
-6. Confirm that Ismail begins as an analysis sidecar rather than the canonical sequencer/render engine.
-7. Approve the “instrument-grade software” visual direction before implementation begins.
+Decided 2026-10-15:
+
+1. **Desktop-first.** Electron is the complete edition; the web edition may become a reduced feature set.
+2. **Fixed shell and four primary views.** Pending: approved through the Phase 0 prototypes.
+3. **Project storage.** Both: a visible `.reborn` directory while editing, plus **Pack Project** for a single shareable archive.
+4. **First operating system.** Windows.
+5. **Agent providers.** Claude CLI, cloud API and local OpenAI-compatible servers all ship in the first agent release.
+6. **Ismail.** Starts as an optional analysis sidecar; RE:BORN's own engine stays the canonical sequencer and renderer.
+7. **Visual direction.** Pending: approved through the Phase 0 prototypes.
 
 ## 17. Definition of RE:BORN v2
 
