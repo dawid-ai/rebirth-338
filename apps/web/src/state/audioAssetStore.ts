@@ -1,5 +1,5 @@
-import type { GrooveEngine } from '../audio/engine'
-import type { ProjectState } from '../model'
+import type { GrooveEngine } from '@reborn/audio-engine'
+import type { ProjectState } from '@reborn/studio-core'
 
 export type AudioAssetKind = 'deck' | 'sample'
 

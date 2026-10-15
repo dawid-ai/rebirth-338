@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultProject } from '../model'
+import { createDefaultProject } from '@reborn/studio-core'
 import { applyOutputCeiling, beatRepeatSeconds, crossfaderGains, deckPlaybackRate, isMixerChannelAudible, makeBitCrushCurve, makeSaturationCurve, samplePlaybackRegion, swungStepDuration, tempoDelaySeconds } from './engine'
 
 describe('sequencer timing', () => {

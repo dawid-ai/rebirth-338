@@ -10,8 +10,8 @@ import {
   type DeckState,
   type ProjectState,
   type SamplerSlot,
-} from '../model'
-import { applyDubstepBarAutomation, DUBSTEP_AUTOMATION_FRAMES, DUBSTEP_SONG_CHAIN } from '../demo/dubstepDemo'
+} from '@reborn/studio-core'
+import { applyDubstepBarAutomation, DUBSTEP_AUTOMATION_FRAMES, DUBSTEP_SONG_CHAIN } from '@reborn/studio-core'
 
 const STEPS = 16
 const LOOK_AHEAD_MS = 25

@@ -1,4 +1,4 @@
-import { createDefaultProject, type ProjectState } from "../model";
+import { createDefaultProject, type ProjectState } from '@reborn/studio-core';
 
 const INDEX_KEY = "rebirth338:projects";
 const PROJECT_PREFIX = "rebirth338:project:";
@@ -64,14 +64,4 @@ export function deleteProject(id: string): void {
   if (localStorage.getItem(ACTIVE_KEY) === id) localStorage.removeItem(ACTIVE_KEY);
 }
 
-export function serializeProject(project: ProjectState): string {
-  return JSON.stringify(project, null, 2);
-}
-
-export function parseProject(json: string): ProjectState {
-  const value = JSON.parse(json) as ProjectState;
-  if (!value || value.version !== 1 || !Array.isArray(value.bass)) {
-    throw new Error("This is not a valid ReBirth 338 project file.");
-  }
-  return value;
-}
+export { parseProject, serializeProject } from '@reborn/studio-core'

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createDefaultProject } from '../model'
+import { createDefaultProject } from '@reborn/studio-core'
 import {
   deleteProject,
   listProjects,

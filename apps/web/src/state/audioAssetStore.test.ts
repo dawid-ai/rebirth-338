@@ -10,7 +10,7 @@ import {
   loadAudioAsset,
   saveAudioAsset,
 } from './audioAssetStore'
-import { createDefaultProject } from '../model'
+import { createDefaultProject } from '@reborn/studio-core'
 
 const ids: string[] = []
 afterEach(async () => Promise.all(ids.splice(0).map(deleteAudioAsset)))

@@ -4,12 +4,11 @@ import {
   Minus, Pause, Play, Plus, Radio, Redo2, RotateCcw, Save, SkipBack,
   SkipForward, Square, Trash2, Undo2, Upload, Waves,
 } from 'lucide-react'
-import { applyChannelAutomation, automationKeys, automationValue, clearAutomationPosition, drumNames, fxPadNames, hydrateProject, normalizeSongScenes, restoreBassDefaults, restoreDeckDefaults, restoreRhythmDefaults, restoreSamplerDefaults, restoreWaveDefaults, setAutomationValue, shiftAutomationBars, transferWaveToBass, wipeBassPattern, wipeRhythmPattern, wipeSamplerPattern, wipeWavePattern, type AutomationChannel, type AutomationScope, type AutomationValue, type BassVoice, type DeckState, type DesignerWaveform, type DrumName, type DrumStep, type ProjectState, type RhythmMachineState, type SamplerState, type WaveDesignerState } from './model'
-import { GrooveEngine, isMixerChannelAudible, type DeckPlaybackState } from './audio/engine'
+import { applyChannelAutomation, automationKeys, automationValue, clearAutomationPosition, drumNames, fxPadNames, hydrateProject, normalizeSongScenes, restoreBassDefaults, restoreDeckDefaults, restoreRhythmDefaults, restoreSamplerDefaults, restoreWaveDefaults, setAutomationValue, shiftAutomationBars, transferWaveToBass, wipeBassPattern, wipeRhythmPattern, wipeSamplerPattern, wipeWavePattern, type AutomationChannel, type AutomationScope, type AutomationValue, type BassVoice, type DeckState, type DesignerWaveform, type DrumName, type DrumStep, type ProjectState, type RhythmMachineState, type SamplerState, type WaveDesignerState } from '@reborn/studio-core'
+import { GrooveEngine, isMixerChannelAudible, type DeckPlaybackState } from '@reborn/audio-engine'
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectSummary } from './state/projectStore'
 import { deleteAudioAsset, restoreProjectAudioAssets, saveAudioAsset } from './state/audioAssetStore'
-import { DUBSTEP_SONG_CHAIN, applyDubstepBarAutomation } from './demo/dubstepDemo'
-import { createDemoProject, demoCatalog, type DemoId } from './demo/catalog'
+import { DUBSTEP_SONG_CHAIN, History, applyDubstepBarAutomation, createDemoProject, demoCatalog, type DemoId } from '@reborn/studio-core'
 
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 const blackKeyPositions = [12.5, 25, 50, 62.5, 75]
@@ -627,8 +626,7 @@ export default function App() {
   const [exportProgress, setExportProgress] = useState<{ completed: number; total: number } | null>(null)
   const engineRef = useRef<GrooveEngine | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const history = useRef<ProjectState[]>([])
-  const future = useRef<ProjectState[]>([])
+  const history = useRef(new History<ProjectState>(40))
   const projectRef = useRef(project)
   const positionOnlyProjectRef = useRef<ProjectState | null>(null)
   const recordingRef = useRef(recording)
@@ -700,9 +698,7 @@ export default function App() {
 
   const commit = useCallback((next: ProjectState | ((current: ProjectState) => ProjectState)) => {
     setProject((current) => {
-      history.current.push(current)
-      if (history.current.length > 40) history.current.shift()
-      future.current = []
+      history.current.record(current)
       return typeof next === 'function' ? next(current) : next
     })
   }, [])
@@ -824,12 +820,12 @@ export default function App() {
   }, [togglePlay, keyboardTarget, keyboardOctave])
 
   const undo = () => {
-    const previous = history.current.pop(); if (!previous) return
-    future.current.push(project); setProject(previous); notify('UNDONE')
+    const previous = history.current.undo(project); if (!previous) return
+    setProject(previous); notify('UNDONE')
   }
   const redo = () => {
-    const next = future.current.pop(); if (!next) return
-    history.current.push(project); setProject(next); notify('REDONE')
+    const next = history.current.redo(project); if (!next) return
+    setProject(next); notify('REDONE')
   }
   const openProjects = () => {
     setSavedProjects(listProjects())

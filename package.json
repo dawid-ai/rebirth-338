@@ -1,12 +1,12 @@
 {
-  "name": "rebirth-338-browser",
+  "name": "rebirth-338",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0-dev",
   "type": "module",
   "scripts": {
-    "dev": "vite --config vite.config.ts",
-    "build": "tsc -b && vite build --config vite.config.ts",
-    "preview": "vite preview --config vite.config.ts --base /rebirth-338/",
+    "dev": "vite --config apps/web/vite.config.ts",
+    "build": "tsc -b && vite build --config apps/web/vite.config.ts",
+    "preview": "vite preview --config apps/web/vite.config.ts --base /rebirth-338/",
     "test": "vitest run",
     "proto": "vite --config vite.proto.config.ts",
     "proto:build": "tsc -p tsconfig.proto.json && vite build --config vite.proto.config.ts"
@@ -25,5 +25,9 @@
     "playwright": "^1.63.0",
     "typescript": "latest",
     "vitest": "latest"
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
