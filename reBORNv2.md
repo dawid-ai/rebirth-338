@@ -533,6 +533,8 @@ Validate these tasks before implementation:
 
 Exit when the layout works at 1024, 1440 and 1920 widths and the primary tasks require no panel hunting.
 
+Status (2026-10-15): the prototypes live in `prototypes/phase0/` (`npm run proto`). `scripts/phase0-smoke.mjs` completes all six tasks and checks the layout at 1024 × 700, 1440 × 900 and 1920 × 1080. Exit still needs a hands-on review, plus approval of decisions 2 and 7 in section 16. Pads now use a right-hand MPC key grid so they never collide with `R` and `1–4`; see `prototypes/phase0/README.md`.
+
 ### Phase 1 — Shared core and Electron shell
 
 - Create the monorepo/package boundaries.

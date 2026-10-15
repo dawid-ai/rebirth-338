@@ -4,3 +4,6 @@ dist/
 vite.config.js
 vite.config.d.ts
 artifacts/
+dist-proto/
+vite.proto.config.js
+vite.proto.config.d.ts

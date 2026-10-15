@@ -7,7 +7,9 @@
     "dev": "vite --config vite.config.ts",
     "build": "tsc -b && vite build --config vite.config.ts",
     "preview": "vite preview --config vite.config.ts --base /rebirth-338/",
-    "test": "vitest run"
+    "test": "vitest run",
+    "proto": "vite --config vite.proto.config.ts",
+    "proto:build": "tsc -p tsconfig.proto.json && vite build --config vite.proto.config.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
