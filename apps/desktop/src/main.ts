@@ -240,6 +240,7 @@ async function buildMenu() {
       label: 'File',
       submenu: [
         item('New Project', 'new', 'CmdOrCtrl+N'),
+        { label: 'New from Template', submenu: studio.TEMPLATES.map((t) => ({ label: t.label, click: () => sendMenu({ command: 'new', template: t.id }) })) },
         {
           label: 'Open Project Folder…',
           accelerator: 'CmdOrCtrl+O',

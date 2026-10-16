@@ -141,7 +141,7 @@ function Projects() {
   return (
     <div className="browser-list">
       <div className="browser-actions">
-        <button type="button" className="chip-btn" onClick={newProject}>
+        <button type="button" className="chip-btn" onClick={() => newProject()}>
           <Plus size={13} />
           New
         </button>
@@ -194,6 +194,16 @@ function Projects() {
           <div>
             <strong>{item.name}</strong>
             <small>{item.path}</small>
+          </div>
+        </button>
+      ))}
+      <h4>Start from a template</h4>
+      {studio.TEMPLATES.map((template) => (
+        <button key={template.id} type="button" className="browser-item" onClick={() => newProject(template.id)}>
+          <Plus size={18} />
+          <div>
+            <strong>{template.label}</strong>
+            <small>{template.detail}</small>
           </div>
         </button>
       ))}

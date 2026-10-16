@@ -188,8 +188,8 @@ export default function App() {
   // Desktop menu commands.
   useEffect(() => {
     if (!desktop) return
-    return desktop.onMenuCommand(({ command, path }) => {
-      if (command === 'new') newProject()
+    return desktop.onMenuCommand(({ command, path, template }) => {
+      if (command === 'new') newProject(template)
       else if (command === 'open-path' && path) void openProject(path)
       else if (command === 'save') void saveProject(false)
       else if (command === 'save-as') void saveProject(true)

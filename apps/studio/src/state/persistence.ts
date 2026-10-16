@@ -157,7 +157,7 @@ export function downloadProject(): void {
   setState((s) => ({ document: { ...s.document, savedRevision: s.project.revision } }))
 }
 
-export function newProject(): void {
-  const project = studio.createDefaultStudioProject('New Beat')
+export function newProject(template = 'starter'): void {
+  const project = studio.createTemplateProject(template, 'New Beat')
   loadProject(project, { path: null, savedRevision: project.revision })
 }

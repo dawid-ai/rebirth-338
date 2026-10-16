@@ -58,6 +58,8 @@ export interface MenuEvent {
   command: MenuCommand
   /** Set for `open-path`: main already chose the project to open. */
   path?: string
+  /** Set for `new`: the template to start from. */
+  template?: string
 }
 
 export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
