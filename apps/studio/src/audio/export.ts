@@ -1,3 +1,4 @@
+import { matchLoudness } from '@reborn/analysis'
 import { encodeWav, renderStems, renderStudio } from '@reborn/audio-engine/studio'
 import { desktop } from '../platform/desktop'
 import { getState, toast, upsertJob } from '../state/store'
@@ -7,6 +8,8 @@ export interface ExportOptions {
   kind: 'mix' | 'stems'
   bitDepth: 16 | 24
   range: 'song' | 'section' | 'loop'
+  /** Integrated loudness target for the mix in LUFS, or null to keep the mix level. */
+  loudness?: number | null
 }
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'export'
@@ -44,10 +47,20 @@ export async function exportAudio(options: ExportOptions): Promise<void> {
     const progress = (completed: number, total: number) => upsertJob({ id, label, completed, total, status: 'running', cancel: () => controller.abort() })
     if (options.kind === 'mix') {
       const result = await renderStudio(project, engine.assetBuffers(), { from, to, signal: controller.signal, onProgress: progress })
-      const wav = encodeWav(result.channels, result.sampleRate, options.bitDepth)
+      let channels: Float32Array[] = result.channels
+      let note = ''
+      if (options.loudness != null) {
+        const matched = matchLoudness(result.channels, result.sampleRate, options.loudness, project.master.ceiling)
+        channels = matched.channels
+        const r = matched.result
+        note = r.limitedByCeiling
+          ? ` at ${r.lufs.toFixed(1)} LUFS. The ${project.master.ceiling} dBTP ceiling stopped it short of ${options.loudness} LUFS; raise Compress or Drive on the master to get louder`
+          : ` at ${r.lufs.toFixed(1)} LUFS`
+      }
+      const wav = encodeWav(channels, result.sampleRate, options.bitDepth)
       const target = await save(wav, `${slug(project.name)}.wav`)
       upsertJob({ id, label, completed: 1, total: 1, status: 'done' })
-      if (target) toast(`Exported ${options.bitDepth}-bit WAV`, 'success')
+      if (target) toast(`Exported ${options.bitDepth}-bit WAV${note}.`, 'success')
     } else {
       const stems = await renderStems(project, engine.assetBuffers(), { from, to, signal: controller.signal, onProgress: progress })
       for (const stem of stems) await save(encodeWav(stem.render.channels, stem.render.sampleRate, options.bitDepth), `${slug(project.name)}-${slug(stem.name)}.wav`)

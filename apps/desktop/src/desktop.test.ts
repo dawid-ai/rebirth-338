@@ -153,3 +153,21 @@ describe('session store', () => {
     await store.finish()
   })
 })
+
+describe('reborn command shim', () => {
+  it('runs the bundled CLI with the app binary in Node mode', async () => {
+    const { installCliShim, shimDirectory } = await import('./cli-shim')
+    const dir = await mkdtemp(join(tmpdir(), 'reborn-shim-'))
+    try {
+      const target = await installCliShim(join(dir, 'bin'), 'C:\Apps\RE-BORN\RE-BORN.exe', 'C:\Apps\RE-BORN\resources\cli\reborn.mjs')
+      const text = await readFile(target, 'utf8')
+      expect(text).toContain('set ELECTRON_RUN_AS_NODE=1')
+      expect(text).toContain('"C:\Apps\RE-BORN\RE-BORN.exe" "C:\Apps\RE-BORN\resources\cli\reborn.mjs" %*')
+      expect(shimDirectory({}, join(dir, 'fallback'))).toEqual({ dir: join(dir, 'fallback'), onPath: false })
+      await mkdir(join(dir, 'Microsoft', 'WindowsApps'), { recursive: true })
+      expect(shimDirectory({ LOCALAPPDATA: dir }, 'x')).toEqual({ dir: join(dir, 'Microsoft', 'WindowsApps'), onPath: true })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})

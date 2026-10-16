@@ -1,7 +1,8 @@
-import { Check, Eye, EyeOff, PanelRight, Play, Sparkles, Square, Trash2, Unlink, X } from 'lucide-react'
+import { Check, Eye, EyeOff, PanelRight, Play, Printer, Sparkles, Square, Trash2, Unlink, X } from 'lucide-react'
 import type { CSSProperties, ReactNode } from 'react'
 import { studio } from '@reborn/studio-core'
 import { engine } from '../audio/host'
+import { resample } from '../audio/resample'
 import { modifiers } from '../state/modifiers'
 import { applyProposal, isPicked, rejectProposal, togglePick, usePreview } from '../state/proposals'
 import { type Selection, dispatch, getState, select, setPrefs, setState, useStudio } from '../state/store'
@@ -12,6 +13,21 @@ type Track = studio.Track
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const db = (v: number) => (v <= -60 ? '−∞ dB' : `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`)
+
+/** Resample: prints this source over the loop range (or the whole song) to a new audio track. */
+function PrintButton({ onPrint }: { onPrint: () => void }) {
+  const loop = useStudio((s) => s.transport.loop)
+  const length = useStudio((s) => s.project.length)
+  const [from, to] = loop ?? [0, length]
+  return (
+    <div className="insp-row">
+      <button type="button" className="chip-btn" onClick={onPrint} title="Render this source to a new sample on an audio track. The source stays as it is.">
+        <Printer size={12} />
+        Print bars {from + 1}–{to} to audio
+      </button>
+    </div>
+  )
+}
 
 /** A knob for any track parameter, with ghost preview and Alt-to-lock on a selected step. */
 export function ParamKnob({ track, param, label, size = 'sm' }: { track: Track; param: string; label?: string; size?: 'sm' | 'md' }) {
@@ -252,6 +268,7 @@ function TrackPanel({ track }: { track: Track }) {
           </button>
         </div>
         <p className="muted small">Removing a track is undoable with Ctrl+Z.</p>
+        <PrintButton onPrint={() => void resample({ kind: 'track', trackId: track.id })} />
       </Group>
     </>
   )
@@ -554,6 +571,7 @@ function ReturnPanel({ returnId }: { returnId: string }) {
       )}
       <Slider label="Tone" value={ret.tone} min={0} max={1} format={pct} onChange={(tone) => set({ tone }, 'Return tone')} />
       <Toggle label="Mute return" tone="alert" on={ret.mute} onChange={(mute) => set({ mute }, mute ? 'Mute return' : 'Unmute return')} />
+      <PrintButton onPrint={() => void resample({ kind: 'return', returnId: ret.id })} />
       <Group title="Fed by">
         <ul className="feed-list">
           {trace.sources

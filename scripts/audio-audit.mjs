@@ -67,7 +67,11 @@ const fingerprints = await page.evaluate(async () => {
   for (const [name, project] of Object.entries(scenarios)) {
     const rendered = await studioEngine.renderStudio(project, buffers, { tail: name.endsWith('return') ? 2.5 : 1 })
     const bands = analysis.bandEnergies(rendered.channels, rendered.sampleRate)
+    // Return scenarios also fingerprint the wet tail after the dry note ends,
+    // so a silent return fails even though the dry hit dominates the RMS.
+    const tail = name.endsWith('return') ? { tailRmsDb: Math.round(analysis.rms(rendered.channels.map((c) => c.subarray(Math.round(0.37 * rendered.sampleRate), Math.round(0.9 * rendered.sampleRate)))) * 10) / 10 } : {}
     result[name] = {
+      ...tail,
       rmsDb: Math.round(analysis.rms(rendered.channels) * 10) / 10,
       peakDb: Math.round(analysis.peak(rendered.channels) * 10) / 10,
       bands: Object.fromEntries(Object.entries(bands).map(([k, v]) => [k, Math.round(v.share * 1000) / 1000])),
@@ -75,7 +79,7 @@ const fingerprints = await page.evaluate(async () => {
   }
   return result
 })
-const silent = Object.entries(fingerprints).filter(([, f]) => f.rmsDb < -70).map(([n]) => n)
+const silent = Object.entries(fingerprints).filter(([, f]) => f.rmsDb < -70 || (f.tailRmsDb !== undefined && f.tailRmsDb < -60)).map(([n]) => n)
 check(silent.length === 0, `silent renders: ${silent.join(', ')}`)
 if (update) {
   mkdirSync('scripts/golden', { recursive: true })
@@ -90,6 +94,7 @@ if (update) {
       continue
     }
     if (Math.abs(actual.rmsDb - expected.rmsDb) > 1) failures.push(`golden ${name}: RMS ${actual.rmsDb} dB, expected ${expected.rmsDb} ± 1`)
+    if (expected.tailRmsDb !== undefined && !(Math.abs((actual.tailRmsDb ?? -200) - expected.tailRmsDb) <= 1.5)) failures.push(`golden ${name}: wet tail ${actual.tailRmsDb} dB, expected ${expected.tailRmsDb} ± 1.5`)
     if (Math.abs(actual.peakDb - expected.peakDb) > 1.5) failures.push(`golden ${name}: peak ${actual.peakDb} dB, expected ${expected.peakDb} ± 1.5`)
     const drift = Object.keys(expected.bands).reduce((sum, band) => sum + Math.abs((actual.bands[band] ?? 0) - expected.bands[band]), 0)
     if (drift > 0.08) failures.push(`golden ${name}: band balance moved by ${drift.toFixed(3)}`)

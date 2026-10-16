@@ -77,13 +77,13 @@ export async function importAudioFile(file: Blob & { name?: string }, origin: st
 }
 
 /** Stores rendered audio (resampling, takes) as a project asset with provenance. */
-export async function storeRenderedAsset(buffer: AudioBuffer, wav: ArrayBuffer, name: string, origin: studio.AssetOrigin): Promise<string> {
+export async function storeRenderedAsset(buffer: AudioBuffer, wav: ArrayBuffer, name: string, origin: studio.AssetOrigin, history: { label?: string; key?: string } = {}): Promise<string> {
   const id = studio.newId('ast')
   const blob = new Blob([wav], { type: 'audio/wav' })
   engine.setBuffer(id, buffer)
   await putAsset({ id, name, mimeType: 'audio/wav', data: blob })
   const asset: studio.Asset = { id, name, mimeType: 'audio/wav', bytes: blob.size, duration: buffer.duration, channels: buffer.numberOfChannels, sampleRate: buffer.sampleRate, origin }
-  dispatch({ type: 'asset.add', params: { asset } }, { label: `Add ${name}` })
+  dispatch({ type: 'asset.add', params: { asset } }, { label: history.label ?? `Add ${name}`, key: history.key })
   return id
 }
 

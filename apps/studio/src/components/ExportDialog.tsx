@@ -4,7 +4,7 @@ import { type ExportOptions, exportAudio, exportRange } from '../audio/export'
 import { useStudio } from '../state/store'
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
-  const [options, setOptions] = useState<ExportOptions>({ kind: 'mix', bitDepth: 16, range: 'song' })
+  const [options, setOptions] = useState<ExportOptions>({ kind: 'mix', bitDepth: 16, range: 'song', loudness: null })
   const hasSection = useStudio((s) => s.selection.kind === 'section')
   const hasLoop = useStudio((s) => Boolean(s.transport.loop))
   const [from, to] = exportRange(options.range)
@@ -49,6 +49,18 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             </div>
             <span className="field-hint">The master ceiling keeps true peaks under its setting. Stems skip the master chain.</span>
           </div>
+          {options.kind === 'mix' && (
+            <div className="field">
+              <span className="field-label">Loudness</span>
+              <div className="seg" role="radiogroup" aria-label="Loudness target">
+                {choice('loudness', null, 'As mixed')}
+                {choice('loudness', -16, '−16 LUFS')}
+                {choice('loudness', -14, '−14 LUFS (streaming)')}
+                {choice('loudness', -9, '−9 LUFS (club)')}
+              </div>
+              <span className="field-hint">One gain change for the whole file. It never limits: if the ceiling would be crossed, the export stops at the ceiling and tells you.</span>
+            </div>
+          )}
         </div>
         <footer>
           <button type="button" className="chip-btn" onClick={onClose}>

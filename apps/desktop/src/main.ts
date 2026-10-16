@@ -27,6 +27,7 @@ import { JobRunner } from './jobs'
 import { packProjectDirectory, readProjectPath, unpackProject, writeAtomic, writeProjectDirectory } from './project-dir'
 import { SessionStore } from './session'
 import { checkForUpdates, startUpdates } from './updater'
+import { installCliShim, shimDirectory } from './cli-shim'
 
 const APP_ORIGIN = 'app://reborn'
 const DEV_URL = process.argv.includes('--dev') ? (process.env.REBORN_DEV_URL ?? 'http://127.0.0.1:5175') : undefined
@@ -294,6 +295,25 @@ async function buildMenu() {
         {
           label: 'Open Log Folder',
           click: () => void shell.openPath(join(app.getPath('userData'), 'logs')),
+        },
+        {
+          label: 'Install Command-Line Tool',
+          click: async () => {
+            const { dir, onPath } = shimDirectory(process.env, join(app.getPath('userData'), 'bin'))
+            try {
+              const target = await installCliShim(dir, process.execPath, CLI_BUNDLE)
+              log('info', `Installed the reborn command at ${target}.`)
+              await dialog.showMessageBox(mainWindow!, {
+                type: 'info',
+                message: 'The reborn command is installed.',
+                detail: `${target}
+
+${onPath ? 'Open a new terminal and run "reborn status".' : `Add ${dir} to your PATH, then run "reborn status" in a new terminal.`} To connect Claude Code, run: claude mcp add reborn -- reborn mcp`,
+              })
+            } catch (error) {
+              await dialog.showMessageBox(mainWindow!, { type: 'error', message: 'The reborn command could not be installed.', detail: String(error) })
+            }
+          },
         },
         {
           label: 'Check for Updates',

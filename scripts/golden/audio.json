@@ -48,6 +48,7 @@
     }
   },
   "delay-return": {
+    "tailRmsDb": -36.2,
     "rmsDb": -36.1,
     "peakDb": -8.1,
     "bands": {
@@ -60,6 +61,7 @@
     }
   },
   "reverb-return": {
+    "tailRmsDb": -47.3,
     "rmsDb": -36.8,
     "peakDb": -8.1,
     "bands": {
@@ -85,50 +87,50 @@
   },
   "drum-808-snare": {
     "rmsDb": -34.9,
-    "peakDb": -5,
+    "peakDb": -5.7,
     "bands": {
       "sub": 0.01,
-      "bass": 0.394,
-      "lowMid": 0.057,
-      "mid": 0.02,
-      "harsh": 0.131,
-      "air": 0.388
+      "bass": 0.395,
+      "lowMid": 0.058,
+      "mid": 0.021,
+      "harsh": 0.134,
+      "air": 0.383
     }
   },
   "drum-808-clap": {
-    "rmsDb": -45.5,
-    "peakDb": -19.3,
+    "rmsDb": -45.3,
+    "peakDb": -19.4,
     "bands": {
       "sub": 0,
       "bass": 0.003,
-      "lowMid": 0.027,
-      "mid": 0.599,
-      "harsh": 0.295,
-      "air": 0.076
+      "lowMid": 0.026,
+      "mid": 0.608,
+      "harsh": 0.287,
+      "air": 0.075
     }
   },
   "drum-808-closedHat": {
-    "rmsDb": -52.3,
-    "peakDb": -20,
+    "rmsDb": -52,
+    "peakDb": -18.5,
     "bands": {
       "sub": 0,
       "bass": 0,
       "lowMid": 0,
       "mid": 0,
-      "harsh": 0.032,
-      "air": 0.967
+      "harsh": 0.036,
+      "air": 0.963
     }
   },
   "drum-808-openHat": {
     "rmsDb": -43.9,
-    "peakDb": -18,
+    "peakDb": -16.5,
     "bands": {
       "sub": 0,
       "bass": 0,
       "lowMid": 0,
       "mid": 0,
-      "harsh": 0.038,
-      "air": 0.962
+      "harsh": 0.044,
+      "air": 0.956
     }
   },
   "drum-808-lowTom": {
@@ -205,43 +207,31 @@
   },
   "drum-909-snare": {
     "rmsDb": -34.4,
-    "peakDb": -4.1,
+    "peakDb": -4.5,
     "bands": {
       "sub": 0.006,
       "bass": 0.272,
-      "lowMid": 0.087,
+      "lowMid": 0.088,
       "mid": 0.019,
-      "harsh": 0.154,
-      "air": 0.462
+      "harsh": 0.157,
+      "air": 0.458
     }
   },
   "drum-909-clap": {
-    "rmsDb": -45.5,
-    "peakDb": -19.3,
+    "rmsDb": -45.3,
+    "peakDb": -19.4,
     "bands": {
       "sub": 0,
       "bass": 0.003,
-      "lowMid": 0.027,
-      "mid": 0.599,
-      "harsh": 0.295,
-      "air": 0.076
+      "lowMid": 0.026,
+      "mid": 0.608,
+      "harsh": 0.287,
+      "air": 0.075
     }
   },
   "drum-909-closedHat": {
-    "rmsDb": -50.6,
-    "peakDb": -17.5,
-    "bands": {
-      "sub": 0,
-      "bass": 0,
-      "lowMid": 0,
-      "mid": 0,
-      "harsh": 0.019,
-      "air": 0.981
-    }
-  },
-  "drum-909-openHat": {
-    "rmsDb": -42.2,
-    "peakDb": -16,
+    "rmsDb": -50.3,
+    "peakDb": -15.8,
     "bands": {
       "sub": 0,
       "bass": 0,
@@ -249,6 +239,18 @@
       "mid": 0,
       "harsh": 0.022,
       "air": 0.978
+    }
+  },
+  "drum-909-openHat": {
+    "rmsDb": -42.2,
+    "peakDb": -15.1,
+    "bands": {
+      "sub": 0,
+      "bass": 0,
+      "lowMid": 0,
+      "mid": 0,
+      "harsh": 0.025,
+      "air": 0.975
     }
   },
   "drum-909-lowTom": {

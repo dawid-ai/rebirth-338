@@ -4,9 +4,10 @@ import { studio } from '@reborn/studio-core'
 import { ask } from '../agent/agent'
 import { runAnalysis } from '../audio/analysis'
 import { exportAudio } from '../audio/export'
+import { resample } from '../audio/resample'
 import { engine, togglePlay } from '../audio/host'
 import { newProject, openProject, saveProject } from '../state/persistence'
-import { type View, dispatch, getState, redo, select, setPrefs, setState, setView, undo } from '../state/store'
+import { type View, dispatch, getState, redo, select, selectedTrackId, setPrefs, setState, setView, undo } from '../state/store'
 import { desktop } from '../platform/desktop'
 import { toggleMidiLearn } from '../midi/host'
 import { addTrack } from './AddTrackMenu'
@@ -33,6 +34,7 @@ function actions(): Action[] {
     { id: 'analyze', label: 'Analyze the mix', run: () => { setView('mix'); void runAnalysis() } },
     { id: 'trace', label: 'Why can I hear echo? (signal trace)', run: () => { setView('mix'); select({ kind: 'return', returnId: s.project.returns[0]?.id ?? 'delay' }) } },
     { id: 'bypass', label: s.project.master.fxSafeBypass ? 'Turn off FX Safe Bypass' : 'Turn on FX Safe Bypass', run: () => dispatch({ type: 'master.set', params: { fxSafeBypass: !s.project.master.fxSafeBypass } }, { label: 'FX Safe Bypass' }) },
+    { id: 'print-master', label: 'Print the master to a new audio track (loop range or song)', run: () => void resample({ kind: 'master' }) },
     { id: 'export', label: 'Export WAV (16-bit)', run: () => void exportAudio({ kind: 'mix', bitDepth: 16, range: 'song' }) },
     { id: 'stems', label: 'Export stems (24-bit)', run: () => void exportAudio({ kind: 'stems', bitDepth: 24, range: 'song' }) },
     { id: 'new', label: 'New project', run: () => newProject() },
@@ -46,6 +48,9 @@ function actions(): Action[] {
     { id: 'help', label: 'Help and shortcuts', hint: 'F1', run: () => setState({ helpOpen: true }) },
   ]
   const sel = s.selection
+  const selectedTrack = s.project.tracks.find((t) => t.id === selectedTrackId(s))
+  if (selectedTrack) list.push({ id: 'print-track', label: `Print ${selectedTrack.name} to a new audio track`, run: () => void resample({ kind: 'track', trackId: selectedTrack.id }) })
+  if (sel.kind === 'return') list.push({ id: 'print-return', label: 'Print the selected return to a new audio track', run: () => void resample({ kind: 'return', returnId: sel.returnId }) })
   if (sel.kind === 'clip') {
     list.push({ id: 'unique', label: 'Make selected clip unique', run: () => dispatch({ type: 'clip.makeUnique', params: { clipId: sel.clipId } }, { label: 'Make unique' }) })
     list.push({ id: 'dup', label: 'Duplicate selected clip', hint: 'Ctrl D', run: () => dispatch({ type: 'clip.duplicate', params: { clipId: sel.clipId } }, { label: 'Duplicate clip' }) })
