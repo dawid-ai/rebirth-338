@@ -21,6 +21,12 @@
     },
     {
       "path": "./tsconfig.proto.json"
+    },
+    {
+      "path": "./packages/analysis"
+    },
+    {
+      "path": "./apps/studio"
     }
   ]
 }

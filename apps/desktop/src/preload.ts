@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type DesktopBridge, type JobUpdate, type MenuEvent } from '@reborn/studio-core/platform'
+import { IPC, type ApiRpcRequest, type DesktopBridge, type JobUpdate, type MenuEvent } from '@reborn/studio-core/platform'
 
 // The only surface the page sees. Each method maps to one IPC channel; no
 // Node or Electron objects cross the bridge.
@@ -27,6 +27,14 @@ const bridge: DesktopBridge = {
   log: (level, message) => ipcRenderer.send(IPC.log, level, message),
   onMenuCommand: (listener) => subscribe<MenuEvent>(IPC.menu, listener),
   onJobUpdate: (listener) => subscribe<JobUpdate>(IPC.jobUpdate, listener),
+  getAgentSettings: () => ipcRenderer.invoke(IPC.agentSettings),
+  setAgentSettings: (patch) => ipcRenderer.invoke(IPC.agentSetSettings, patch),
+  agentComplete: (request) => ipcRenderer.invoke(IPC.agentComplete, request),
+  agentRunCli: (prompt) => ipcRenderer.invoke(IPC.agentRunCli, prompt),
+  onApiRequest: (listener) => subscribe<ApiRpcRequest>(IPC.apiRequest, listener),
+  respondApi: (response) => ipcRenderer.send(IPC.apiResponse, response),
+  apiClients: () => ipcRenderer.invoke(IPC.apiClients),
+  emitApiEvent: (event) => ipcRenderer.send(IPC.apiEvent, event),
 }
 
 contextBridge.exposeInMainWorld('reborn', bridge)

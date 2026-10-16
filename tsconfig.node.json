@@ -10,6 +10,8 @@
   "include": [
     "apps/web/vite.config.ts",
     "vite.proto.config.ts",
-    "apps/desktop/vite.config.ts"
+    "apps/desktop/vite.config.ts",
+    "packages/cli/vite.config.ts",
+    "apps/studio/vite.config.ts"
   ]
 }

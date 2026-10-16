@@ -1,0 +1,138 @@
+import { Activity, Route, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
+import { BAND_NAMES } from '@reborn/analysis'
+import { studio } from '@reborn/studio-core'
+import { runAnalysis, useAnalysis } from '../audio/analysis'
+import { dispatch, select, toast, useStudio } from '../state/store'
+
+const BAND_LABELS: Record<string, string> = { sub: 'Sub', bass: 'Bass', lowMid: 'Low-mid', mid: 'Mid', harsh: 'Harsh', air: 'Air' }
+
+function heat(share: number) {
+  const v = Math.max(0, Math.min(1, share * 3))
+  return `color-mix(in oklab, var(--field-3) ${Math.round((1 - v) * 100)}%, var(--heat) ${Math.round(v * 100)}%)`
+}
+
+export function MixDock() {
+  const project = useStudio((s) => s.project)
+  const report = useAnalysis()
+  const [tracing, setTracing] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const stale = report && report.revision !== project.revision
+  const traces = project.returns.map((ret) => studio.traceReturn(project, ret.id))
+
+  return (
+    <div className="mix-dock">
+      <div className="analyzer">
+        <div className="editor-bar">
+          <strong className="panel-title">Analyzer</strong>
+          <button
+            type="button"
+            className="chip-btn"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await runAnalysis()
+              } catch (error) {
+                toast(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`, 'error')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <Activity size={12} />
+            {busy ? 'Rendering…' : report ? 'Analyze again' : 'Analyze mix'}
+          </button>
+          {report && (
+            <span className={`muted${stale ? ' stale' : ''}`}>
+              {stale ? 'The project changed since this measurement. ' : ''}Whole song: {report.whole.loudnessLufs.toFixed(1)} LUFS · true peak {report.whole.truePeakDb.toFixed(1)} dBTP · tail {report.tailSeconds.toFixed(1)} s
+            </span>
+          )}
+          {!report && <span className="muted">Renders the song offline and measures each section. Nothing changes in the project.</span>}
+        </div>
+        {report && (
+          <table className="an-table">
+            <thead>
+              <tr>
+                <th scope="col">Section</th>
+                {BAND_NAMES.map((band) => (
+                  <th key={band} scope="col">
+                    {BAND_LABELS[band]}
+                  </th>
+                ))}
+                <th scope="col">LUFS</th>
+                <th scope="col">Peak</th>
+                <th scope="col">Crest</th>
+                <th scope="col">Corr</th>
+                <th scope="col">Flags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.sections.map((section) => (
+                <tr key={section.id}>
+                  <th scope="row">{section.name}</th>
+                  {BAND_NAMES.map((band) => (
+                    <td key={band} className="heat" style={{ background: heat(section.bands[band].share) }} title={`${BAND_LABELS[band]}: ${section.bands[band].db.toFixed(1)} dB, ${Math.round(section.bands[band].share * 100)}% of energy`}>
+                      {Math.round(section.bands[band].share * 100)}%
+                    </td>
+                  ))}
+                  <td className="num">{Number.isFinite(section.loudnessLufs) ? section.loudnessLufs.toFixed(1) : '—'}</td>
+                  <td className="num">{Number.isFinite(section.truePeakDb) ? section.truePeakDb.toFixed(1) : '—'}</td>
+                  <td className="num">{Number.isFinite(section.crestDb) ? section.crestDb.toFixed(1) : '—'}</td>
+                  <td className="num">{section.correlation.toFixed(2)}</td>
+                  <td className="flags">
+                    {section.warnings.map((w) => (
+                      <span key={w.code} className="flag" title={w.message}>
+                        <TriangleAlert size={10} />
+                        {w.code.replace('_', ' ')}
+                      </span>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="tracer">
+        <div className="editor-bar">
+          <strong className="panel-title">Signal trace</strong>
+          <button type="button" className={`chip-btn${tracing ? ' is-on' : ''}`} onClick={() => setTracing(!tracing)}>
+            <Route size={12} />
+            {tracing ? 'Hide trace' : 'Why can I hear echo?'}
+          </button>
+        </div>
+        {tracing &&
+          traces.map((trace) => (
+            <div key={trace.returnId} className="trace-bus">
+              <div className={`trace-ret${trace.audible ? '' : ' is-off'}`}>
+                <strong>{trace.name}</strong>
+                <span>{trace.reason}</span>
+              </div>
+              <ul>
+                {trace.sources
+                  .filter((row) => row.level > 0)
+                  .sort((a, b) => Number(b.suspicious) - Number(a.suspicious) || b.level - a.level)
+                  .map((row) => (
+                    <li key={row.trackId} className={`${row.suspicious ? 'is-suspicious' : ''}${row.feeds ? '' : ' is-dead'}`}>
+                      <button type="button" onClick={() => select({ kind: 'track', trackId: row.trackId })}>
+                        <strong>{row.name}</strong>
+                        <span>{row.reason}</span>
+                        {row.suspicious && <em>Likely source</em>}
+                      </button>
+                      {row.suspicious && (
+                        <button type="button" className="chip-btn fix" onClick={() => dispatch({ type: 'send.set', params: { trackId: row.trackId, returnId: trace.returnId, tap: 'post' } }, { label: `Make ${row.name}’s send post-fader` })}>
+                          Make post-fader
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                {!trace.sources.some((row) => row.level > 0) && <li className="muted">No track sends to {trace.name}.</li>}
+              </ul>
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
