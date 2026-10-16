@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./platform": "./src/platform.ts",
-    "./studio": "./src/studio/index.ts"
+    "./studio": "./src/studio/index.ts",
+    "./api": "./src/api.ts"
   }
 }
