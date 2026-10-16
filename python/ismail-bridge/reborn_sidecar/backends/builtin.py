@@ -18,8 +18,9 @@ import numpy as np
 
 from .. import __version__
 from ..dsp import StreamingFir, TruePeakMeter, k_weighting_fir
+from ..errors import SidecarError
 from ..jobs import JobContext
-from ..model import AnalyzeRequest, CompareRequest
+from ..model import AnalyzeRequest, CompareRequest, GenerateRequest, SeparateRequest
 from ..wavio import WavInfo, WavReader, probe
 
 BANDS: tuple[tuple[str, float, float], ...] = (
@@ -420,6 +421,9 @@ def compare_findings(mix: dict[str, Any], reference: dict[str, Any]) -> tuple[di
     return differences, findings
 
 
+ISMAIL_NEEDED = 'This needs Ismail. Install it from RE:BORN (Browser > Generate > Install Ismail).'
+
+
 class BuiltinBackend:
     name = 'builtin'
     version = __version__
@@ -467,3 +471,12 @@ class BuiltinBackend:
             'differences': differences,
             'findings': findings,
         }
+
+    def presets(self) -> dict[str, Any]:
+        raise SidecarError('unavailable', ISMAIL_NEEDED)
+
+    def generate(self, request: GenerateRequest, ctx: JobContext) -> dict[str, Any]:
+        raise SidecarError('unavailable', ISMAIL_NEEDED)
+
+    def separate(self, request: SeparateRequest, ctx: JobContext) -> dict[str, Any]:
+        raise SidecarError('unavailable', ISMAIL_NEEDED)

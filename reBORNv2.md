@@ -612,7 +612,7 @@ Status (2026-10-16): exit criterion met. The typed registry (`packages/studio-co
 
 Exit when an analysis job can fail, cancel or restart without affecting transport, project integrity or manual editing.
 
-Status (2026-10-16): exit criterion met. `python/ismail-bridge` runs as a supervised sidecar that installs its own environment when `numpy` is missing, and handles analysis and reference comparison. The desktop smoke test kills the sidecar during playback and confirms playback, the project, and editing continue, then restarts it. Sound generation through Ismail and stem separation are not built: the Ismail code itself isn't in this repository, so only the adapter and the built-in backend exist.
+Status (2026-10-16): delivered. `python/ismail-bridge` runs as a supervised sidecar that installs its own environment when `numpy` is missing. The desktop app installs [Ismail](https://github.com/newsbubbles/ismail) on request (pinned commit, from **Browser** > **Generate**), and its stem separation extra separately. With Ismail, deep analysis and reference comparison attach Ismail's section, key, chord, comparison, alignment, and tempo reports; the **Generate** tab, `reborn generate`, and `ismail_generate` synthesize sounds with Ismail's presets and voices; and **Separate stems**, `reborn separate`, and `ismail_separate` split audio into stems with Demucs. Results return as new assets on new tracks, one undo step each, and never modify the source. The desktop smoke test kills the sidecar during playback and confirms playback, the project, and editing continue; `scripts/ismail-smoke.mjs` installs Ismail through the UI and checks generation, reports, separation, and the CLI.
 
 ### Phase 7 — Performance and release readiness
 

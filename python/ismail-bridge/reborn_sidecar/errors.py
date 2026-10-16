@@ -8,6 +8,7 @@ ERROR_CODES: tuple[str, ...] = (
     'unsupported_format',
     'cancelled',
     'backend_error',
+    'unavailable',
     'internal',
 )
 

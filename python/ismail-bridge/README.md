@@ -1,13 +1,14 @@
 # RE:BORN analysis sidecar
 
-`reborn-sidecar` is the optional Python process that RE:BORN's desktop app runs for deeper audio analysis. RE:BORN renders a mix or stems to WAV, sends the sidecar a file path, and gets structured measurements back. The sidecar only reads audio files; it never edits a RE:BORN project.
+`reborn-sidecar` is the optional Python process that RE:BORN's desktop app runs for deeper audio analysis, sound generation, and stem separation. RE:BORN renders a mix or stems to WAV, sends the sidecar a file path, and gets structured measurements, new sounds, or stems back. The sidecar never edits a RE:BORN project; the studio imports what it returns as new assets.
 
-It ships with a builtin numpy backend that always works. When an `ismail` Python module is importable, the sidecar also runs it and attaches its output.
+It ships with a builtin numpy backend that always works. When [Ismail](https://github.com/newsbubbles/ismail) is installed, the sidecar also runs Ismail's analysis, comparison, sound generation (`sound_make`), and Demucs stem separation.
 
 ## Requirements
 
 - Python 3.10 or later (developed on 3.11).
-- `numpy`. No other packages.
+- `numpy` for the builtin backend.
+- Optional: Ismail, which RE:BORN installs on request from **Browser** > **Generate** (about 650 MB), and its `separate` extra for stem separation (PyTorch and Demucs, about 700 MB more).
 
 ## Install
 
@@ -21,7 +22,13 @@ venv\Scripts\python -m pip install numpy
 
 On macOS or Linux, use `python3 -m venv venv` and `venv/bin/python`.
 
-You can also install the package itself with `pip install .`, which adds a `reborn-sidecar` command.
+To add Ismail by hand, install the commit RE:BORN pins (`ISMAIL_COMMIT` in `apps/desktop/src/sidecar.ts`):
+
+```powershell
+venv\Scripts\python -m pip install "ismail[separate] @ https://github.com/newsbubbles/ismail/archive/<commit>.zip"
+```
+
+Drop `[separate]` to skip PyTorch and Demucs. You can also install this package itself with `pip install .`, which adds a `reborn-sidecar` command.
 
 ## Run
 
@@ -37,16 +44,17 @@ Then type requests, one JSON object per line:
 {"id": "1", "method": "hello"}
 {"id": "2", "method": "analyze", "params": {"path": "C:/renders/mix.wav", "sections": [{"id": "drop", "start": 32, "end": 48}]}}
 {"id": "3", "method": "compare", "params": {"path": "C:/renders/mix.wav", "reference": "C:/refs/ref.wav"}}
-{"id": "4", "method": "shutdown"}
+{"id": "4", "method": "generate", "params": {"name": "Stab", "instrument": "acid_bass", "notes": "0 C2 0.5 110", "bpm": 128, "outDir": "C:/renders/out"}}
+{"id": "5", "method": "shutdown"}
 ```
 
 ## Protocol
 
 [`PROTOCOL.md`](PROTOCOL.md) defines the wire format, every method and result field, error codes, and the measurement conventions. In short:
 
-- Methods: `hello`, `analyze`, `compare`, `cancel`, `shutdown`.
-- Long jobs stream `progress` notifications and stop at the next chunk after `cancel`.
-- Errors: `invalid_params`, `not_found`, `unsupported_format`, `cancelled`, `backend_error`, `internal`. Bad input and backend exceptions never stop the process.
+- Methods: `hello`, `analyze`, `compare`, `presets`, `generate`, `separate`, `cancel`, `shutdown`.
+- Jobs stream `progress` notifications and stop at the next chunk after `cancel`.
+- Errors: `invalid_params`, `not_found`, `unsupported_format`, `cancelled`, `backend_error`, `unavailable`, `internal`. Bad input and backend exceptions never stop the process.
 
 ## Backends
 

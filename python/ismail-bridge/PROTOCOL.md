@@ -1,8 +1,8 @@
-# Sidecar protocol (version 1)
+# Sidecar protocol (version 2)
 
 The sidecar speaks JSON lines over stdio. You start it with `python -m reborn_sidecar`, write requests to its stdin, and read messages from its stdout. Every message is one UTF-8 JSON object followed by `\n`. Logs go to stderr only; nothing else is ever written to stdout.
 
-The sidecar only reads the files you name. It never writes to or edits RE:BORN projects.
+The sidecar only reads the files you name, and writes only into the `outDir` folders you pass to `generate` and `separate`. It never writes to or edits RE:BORN projects.
 
 ## Messages
 
@@ -27,13 +27,13 @@ Exactly one response per request, either a result or an error:
 
 ### Progress notification
 
-Long methods (`analyze`, `compare`) send zero or more notifications before their response:
+Job methods (`analyze`, `compare`, `generate`, `separate`) send zero or more notifications before their response:
 
 ```json
 {"id": "r1", "progress": {"completed": 12, "total": 60, "message": "Analyzing mix.wav"}}
 ```
 
-`completed` and `total` count work units (1-second chunks for the builtin backend). Notifications are rate limited to about one every 50 ms, and the last chunk is always reported. When the Ismail backend runs, a second phase starts again at `0` with messages prefixed `Ismail:`.
+`completed` and `total` count work units (1-second chunks for the builtin backend, one report for Ismail). Notifications are rate limited to about one every 50 ms, and the last chunk is always reported. When the Ismail backend runs, a second phase starts again at `0` with messages prefixed `Ismail:`.
 
 ### Malformed input
 
@@ -54,6 +54,7 @@ The sidecar keeps running after any bad input.
 | `unsupported_format` | The file is not a supported WAV encoding. |
 | `cancelled` | The job stopped after a `cancel` request. |
 | `backend_error` | The analysis backend raised an exception or returned a non-JSON result. The process stays up. |
+| `unavailable` | The method needs Ismail (or its stem separation extra), which is not installed. |
 | `internal` | A bug in the protocol layer. The process stays up. |
 
 ## Methods
@@ -78,7 +79,7 @@ Result:
 ```
 
 - `backend` is `builtin` or `ismail`.
-- The Ismail backend adds `ismail` and `ismail:<name>` capabilities.
+- The Ismail backend adds `ismail`, `ismail:overview`, `ismail:key`, `ismail:chords`, `ismail:compare`, `generate`, and `presets`, plus `separate` when PyTorch and Demucs are installed.
 - `fallbackReason` is present when `REBORN_SIDECAR_BACKEND=ismail` was requested but the module could not be imported.
 
 ### `analyze`
@@ -90,6 +91,7 @@ Params:
 | `path` | string | required | WAV file to measure. |
 | `sections` | `[{id, start, end}]` | `[]` | Ranges in seconds, `0 <= start < end`. |
 | `bands` | boolean | `true` | `false` omits `bands` from every metrics object. |
+| `tempo` | `{bpm, beatsPerBar?, offsetSeconds?}` | none | The song grid. Ismail numbers bars with it; without it, Ismail assumes 120 BPM in 4/4. |
 
 Result:
 
@@ -105,7 +107,13 @@ Result:
 }
 ```
 
-With the Ismail backend, `backend` is `ismail` and the Ismail output is attached unchanged as `ismail`.
+With the Ismail backend, `backend` is `ismail` and Ismail's text reports are attached as `ismail`:
+
+```json
+{"ismail": {"version": "0.3.0", "reports": {"overview": "...", "key": "...", "chords": "..."}, "errors": {}}}
+```
+
+`overview` is Ismail's `analyze_overview` (loudness, key, and a section map), `key` is `analyze_key`, and `chords` is `analyze_chords` over the first 32 bars. A report that fails is listed under `errors` with its message; the others still return.
 
 #### Metrics
 
@@ -132,7 +140,7 @@ Sections snap to a 100 ms grid. `analyzedStart` and `analyzedEnd` report the mea
 
 ### `compare`
 
-Params: `{path: string, reference: string}`. Both files are measured with the builtin metrics.
+Params: `{path: string, reference: string, tempo?: object}`. Both files are measured with the builtin metrics. With the Ismail backend, `ismail.reports` adds `compare` (bar-by-bar harmony, rhythm, and band scores), `align` (timing lag), `referenceKey`, and `referenceGrid` (the reference's tempo and downbeat).
 
 Result:
 
@@ -169,9 +177,41 @@ Result:
 | `truePeak` | The mix's true peak is above -1 dBTP. |
 | `dcOffset` | The mix's DC offset is 0.1% of full scale or more. |
 
+### `presets`
+
+Lists Ismail's instruments. Needs the Ismail backend; otherwise `unavailable`.
+
+Result: `{"presets": [{"name": "acid_bass", "type": "synth"}], "voices": [{"name": "growl", "family": "built-in/bass", "summary": "..."}]}`
+
+### `generate`
+
+Synthesizes a sound with Ismail's `sound_make` in a scratch Ismail project, copies the WAV to `outDir`, and deletes the scratch project.
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `name` | string | required | Up to 80 characters. |
+| `instrument` | string or object | required | A preset name (`acid_bass`, `preset:pluck`) or an Ismail instrument object such as `{"type": "code", "voice": "growl"}`. |
+| `notes` | string | `0 C4 1` | Ismail notes: `start_beat pitch length_beats [velocity]`, one per line or separated by `;`. A comma makes a chord. |
+| `outDir` | string | required | Absolute folder for the WAV. |
+| `bpm` | number | `120` | Tempo for the note beats. |
+| `tailSeconds` | number | `1` | Release after the last note, 0 to 30. |
+| `normalize` | boolean | `true` | Peak-normalize to -1 dBFS. |
+
+Result: `{"path": "C:/.../Acid stab-6d45518b.wav", "name": "Acid stab", "summary": "sound 'Acid stab': 0.26s", "description": "envelope: ..."}`. `description` is Ismail's timbre report. An unknown preset or a bad note answers `invalid_params` with Ismail's explanation.
+
+### `separate`
+
+Splits a WAV into stems with Demucs through Ismail. Needs the separation extra (PyTorch and Demucs); otherwise `unavailable`.
+
+Params: `{path: string, outDir: string, model?: string}`. `model` defaults to `htdemucs`. The first run downloads the model weights.
+
+Result: `{"model": "htdemucs", "stems": [{"name": "drums", "path": "..."}, {"name": "bass", "path": "..."}, {"name": "other", "path": "..."}, {"name": "vocals", "path": "..."}]}`, all in a new subfolder of `outDir`.
+
+Demucs cannot stop part-way. A `cancel` during separation discards the output when Demucs finishes; to stop it at once, end the process.
+
 ### `cancel`
 
-Params: `{target: string}`, the `id` of a running `analyze` or `compare`.
+Params: `{target: string}`, the `id` of a running job.
 
 Result: `{"target": "r1", "cancelled": true}`. `cancelled` is `false` when no job with that id is running, for example because it already finished.
 
@@ -191,9 +231,10 @@ RIFF/WAVE files with integer PCM at 8, 16, 24, or 32 bits, or IEEE float at 32 o
 | --- | --- | --- |
 | `REBORN_SIDECAR_BACKEND` | `auto` | `builtin`, `ismail`, or `auto`. |
 | `REBORN_SIDECAR_ISMAIL_MODULE` | `ismail` | Module name the Ismail adapter imports. |
+| `REBORN_SIDECAR_WORKSPACE` | `reborn-ismail` in the temp folder | Folder for Ismail's scratch projects. `ISMAIL_SONGS` and `ISMAIL_MACHINE_DIR` default to folders inside it. |
 | `REBORN_SIDECAR_LOG_LEVEL` | `INFO` | Python logging level for stderr. |
 | `REBORN_SIDECAR_THROTTLE_MS` | `0` | Delay per chunk. For tests only. |
 
 ## Concurrency
 
-The main thread reads stdin and answers `hello`, `cancel`, and `shutdown` directly. Each `analyze` or `compare` runs on its own worker thread; at most two run at once, and the rest wait for a slot (and can be cancelled while waiting). Responses can arrive in any order, so match them by `id`.
+The main thread reads stdin and answers `hello`, `cancel`, and `shutdown` directly. Each job method runs on its own worker thread; at most two run at once, and the rest wait for a slot (and can be cancelled while waiting). Responses can arrive in any order, so match them by `id`.

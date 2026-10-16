@@ -274,6 +274,35 @@ describe('runtime', () => {
     expect(result.stderr).toMatch(/Mix render failed: The engine stopped/)
   })
 
+  it('generates a sound with Ismail from a preset, a voice, or JSON', async () => {
+    const result = await cli(['generate', 'acid_bass', '0 C2 0.5 110; 0.5 C3 0.5', '--name', 'Stab', '--bar', '9', '--wait'])
+    expect(result.code).toBe(EXIT.ok)
+    expect(lastBody('/v1/runtime')).toEqual({ action: 'ismail.generate', params: { name: 'Stab', instrument: 'acid_bass', notes: '0 C2 0.5 110; 0.5 C3 0.5', bar: 9 } })
+    expect(result.stdout).toMatch(/^Generated Stab on track trk_new \(asset ast_generated\)\.\nsound 'Stab': 0\.26s\n$/)
+    await cli(['generate', 'voice:growl', '0 E1 1', '--track', 'Sampler', '--wait'])
+    expect(lastBody('/v1/runtime')).toMatchObject({ params: { name: 'growl', instrument: { type: 'code', voice: 'growl' }, trackId: 'Sampler' } })
+    await cli(['generate', '{"type":"synth","oscs":[{"wave":"saw"}]}', '0 C3 1', '--wait'])
+    expect(lastBody('/v1/runtime')).toMatchObject({ params: { instrument: { type: 'synth' } } })
+    expect((await cli(['generate', '{oops', '0 C3 1'])).code).toBe(EXIT.usage)
+    expect((await cli(['generate', 'acid_bass'])).code).toBe(EXIT.usage)
+    expect((await cli(['generate', 'acid_bass', '0 C3 1', '--tail', '99'])).code).toBe(EXIT.usage)
+  })
+
+  it('separates stems from exactly one source', async () => {
+    const result = await cli(['separate', '--clip', 'clp_1', '--wait'])
+    expect(result.code).toBe(EXIT.ok)
+    expect(lastBody('/v1/runtime')).toEqual({ action: 'ismail.separate', params: { clipId: 'clp_1' } })
+    expect(result.stdout).toMatch(/drums\s+trk_0\n\s+bass/)
+    expect((await cli(['separate'])).code).toBe(EXIT.usage)
+    expect((await cli(['separate', '--clip', 'a', '--asset', 'b'])).code).toBe(EXIT.usage)
+  })
+
+  it('lists Ismail presets and voices', async () => {
+    const result = await cli(['presets'])
+    expect(result.stdout).toMatch(/acid_bass\s+synth/)
+    expect(result.stdout).toMatch(/growl\s+dubstep bass engine/)
+  })
+
   it('analyzes a bar range and prints a compact report', async () => {
     const result = await cli(['analyze', '--bars', '1:16', '--wait'])
     expect(result.code).toBe(EXIT.ok)

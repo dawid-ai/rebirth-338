@@ -55,7 +55,7 @@ export function MixDock() {
           {!report && <span className="muted">Renders the song offline and measures each section. Nothing changes in the project.</span>}
           {desktop && (
             <>
-              <button type="button" className="chip-btn" disabled={deepRunning} onClick={() => void runDeep('analyze')} title="Measure with the Python analysis sidecar (Ismail bridge)">
+              <button type="button" className="chip-btn" disabled={deepRunning} onClick={() => void runDeep('analyze')} title="Measure with the Python analysis sidecar. With Ismail installed, it also reports sections, key, and chords.">
                 Deep analysis
               </button>
               <button type="button" className="chip-btn" disabled={deepRunning} onClick={() => void runDeep('compare')} title="Compare loudness and tonal balance with a reference WAV">
@@ -86,6 +86,17 @@ export function MixDock() {
                 {deep.sections.map((s) => `${s.name} ${s.lufs ?? '—'} LUFS`).join(' · ')}
               </span>
             )}
+            {deep.reports.length > 0 && (
+              <div className="deep-reports">
+                {deep.reports.map((report) => (
+                  <details key={report.name} className="deep-report">
+                    <summary>Ismail · {report.name}</summary>
+                    <pre>{report.text}</pre>
+                  </details>
+                ))}
+              </div>
+            )}
+            {deep.reportErrors.length > 0 && <span className="muted">Not available this time: {deep.reportErrors.join('; ')}</span>}
           </div>
         )}
         {report && (

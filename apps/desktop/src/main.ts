@@ -9,7 +9,9 @@ import {
   PACKED_PROJECT_EXTENSION,
   PROJECT_DIRECTORY_EXTENSION,
   PROJECT_FILE,
+  type DeepTempo,
   type DesktopAssetPayload,
+  type IsmailGenerateRequest,
   type JobUpdate,
   type LogLevel,
   type MenuEvent,
@@ -344,13 +346,38 @@ function registerIpc() {
     if (!buffer) throw new Error('Expected WAV data.')
     return new Uint8Array(buffer)
   }
-  handle(IPC.deepAnalyze, (request: { wav: unknown; sections: { id: string; start: number; end: number }[] }) => deep.analyze(bytes(request?.wav), Array.isArray(request?.sections) ? request.sections : []))
-  handle(IPC.deepCompare, async (request: { wav: unknown }) => {
+  const tempo = (value: unknown): DeepTempo | undefined => {
+    const candidate = value as Partial<DeepTempo> | undefined
+    return candidate && typeof candidate.bpm === 'number' && typeof candidate.beatsPerBar === 'number' ? { bpm: candidate.bpm, beatsPerBar: candidate.beatsPerBar } : undefined
+  }
+  handle(IPC.deepAnalyze, (request: { wav: unknown; sections: { id: string; start: number; end: number }[]; tempo?: unknown }) => deep.analyze(bytes(request?.wav), Array.isArray(request?.sections) ? request.sections : [], tempo(request?.tempo)))
+  handle(IPC.deepCompare, async (request: { wav: unknown; tempo?: unknown }) => {
     const preset = process.env.REBORN_E2E_REFERENCE_PATH
     const chosen = preset ?? (await dialog.showOpenDialog(mainWindow!, { title: 'Choose a reference track', properties: ['openFile'], filters: [{ name: 'WAV audio', extensions: ['wav'] }] })).filePaths[0]
     if (!chosen) return null
-    return deep.compare(bytes(request?.wav), chosen)
+    return deep.compare(bytes(request?.wav), chosen, tempo(request?.tempo))
   })
+  handle(IPC.ismailStatus, async () => deep.ismailStatus())
+  handle(IPC.ismailInstall, async (request: { separation?: unknown }) => {
+    const separation = request?.separation === true
+    const id = 'ismail-install'
+    sendJob({ id, kind: 'install', status: 'running', completed: 0, total: 1, message: separation ? 'Installing Ismail stem separation' : 'Installing Ismail' })
+    try {
+      const status = await deep.installIsmail(separation)
+      sendJob({ id, kind: 'install', status: 'done', completed: 1, total: 1, message: 'Ismail is ready' })
+      return status
+    } catch (error) {
+      sendJob({ id, kind: 'install', status: 'failed', completed: 0, total: 1, message: error instanceof Error ? error.message : String(error) })
+      throw error
+    }
+  })
+  handle(IPC.ismailPresets, async () => deep.presets())
+  handle(IPC.ismailGenerate, async (request: IsmailGenerateRequest) => {
+    if (!request || typeof request.name !== 'string' || typeof request.notes !== 'string' || typeof request.bpm !== 'number') throw new Error('Expected a name, notes, and a tempo.')
+    if (typeof request.instrument !== 'string' && (typeof request.instrument !== 'object' || request.instrument === null)) throw new Error('Expected a preset name or an instrument object.')
+    return deep.generate({ name: request.name, instrument: request.instrument, notes: request.notes, bpm: request.bpm, ...(typeof request.tailSeconds === 'number' && { tailSeconds: request.tailSeconds }) })
+  })
+  handle(IPC.ismailSeparate, async (request: { wav: unknown }) => deep.separate(bytes(request?.wav)))
   handle(IPC.deepStatus, async () => deep.status())
   ipcMain.on(IPC.deepCancel, (event) => {
     if (isTrusted(event)) deep.cancel()
@@ -474,6 +501,7 @@ if (!app.requestSingleInstanceLock()) {
       dataDir: app.getPath('userData'),
       log: (line) => log('info', line),
       onProgress: (completed, total, message) => sendJob({ id: 'deep-analysis', kind: 'analysis', status: 'running', completed, total, message }),
+      onInstall: (line) => sendJob({ id: 'ismail-install', kind: 'install', status: 'running', completed: 0, total: 1, message: line.slice(0, 160) }),
     })
     if (E2E) Object.assign(globalThis, { __rebornDeep: deep })
     registerProtocol()

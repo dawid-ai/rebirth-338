@@ -91,6 +91,12 @@ export type RuntimeAction =
   | 'project.open'
   /** Internal: the server asks the app to abort a job. Params: {jobId}. */
   | 'job.cancel'
+  /** Ismail's instrument presets and voices (desktop, Ismail installed). */
+  | 'ismail.presets'
+  /** Job: synthesizes a sound with Ismail and places it. Params: {name, instrument, notes, tailSeconds?, trackId?, bar?} (bar 1-based). */
+  | 'ismail.generate'
+  /** Job: splits audio into stems on new audio tracks. Params: {clipId} or {assetId, bar?} or {trackId} (deck or sampler source). */
+  | 'ismail.separate'
 
 export interface RuntimeRequest {
   action: RuntimeAction

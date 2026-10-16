@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 
@@ -10,13 +10,13 @@ import { createInterface } from 'node:readline'
 
 export type SidecarStatus = 'stopped' | 'starting' | 'ready' | 'crashed' | 'unavailable'
 
-export type SidecarRemoteErrorCode = 'invalid_params' | 'not_found' | 'unsupported_format' | 'cancelled' | 'backend_error' | 'internal'
+export type SidecarRemoteErrorCode = 'invalid_params' | 'not_found' | 'unsupported_format' | 'cancelled' | 'backend_error' | 'unavailable' | 'internal'
 
 export type SidecarErrorCode = SidecarRemoteErrorCode | 'timeout' | 'crashed' | 'stopped' | 'unavailable' | 'protocol'
 
-const remoteErrorCodes: ReadonlySet<string> = new Set<SidecarRemoteErrorCode>(['invalid_params', 'not_found', 'unsupported_format', 'cancelled', 'backend_error', 'internal'])
+const remoteErrorCodes: ReadonlySet<string> = new Set<SidecarRemoteErrorCode>(['invalid_params', 'not_found', 'unsupported_format', 'cancelled', 'backend_error', 'unavailable', 'internal'])
 
-export const SIDECAR_PROTOCOL_VERSION = 1
+export const SIDECAR_PROTOCOL_VERSION = 2
 export const SIDECAR_MODULE_ARGS: readonly string[] = ['-m', 'reborn_sidecar']
 
 export class SidecarError extends Error {
@@ -530,6 +530,8 @@ export async function ensureEnvironment(options: EnsureEnvironmentOptions): Prom
   }
   const venvDir = join(options.baseDir, 'venv')
   const python = venvPython(venvDir, options.platform)
+  // Commands run inside baseDir, which does not exist on a first install.
+  mkdirSync(options.baseDir, { recursive: true })
   const exec = async (command: string, args: string[]) => run(command, args, { cwd: options.baseDir, onLine: report })
   const hasNumpy = async () => (await exec(python, ['-c', 'import numpy'])) === 0
 
@@ -555,4 +557,38 @@ export async function ensureEnvironment(options: EnsureEnvironmentOptions): Prom
   if (!(await hasNumpy())) throw new SidecarError('unavailable', 'numpy is installed but cannot be imported.')
   report('The analysis environment is ready.')
   return { python, created, installed: true }
+}
+
+/**
+ * The Ismail release RE:BORN installs, pinned to a commit so an upstream
+ * change cannot alter what an installed app downloads. It installs from the
+ * source archive, so Git is not required.
+ */
+export const ISMAIL_COMMIT = '726b41bd4725894f274337a6a7a5f345763333d6'
+export const ISMAIL_ARCHIVE = `https://github.com/newsbubbles/ismail/archive/${ISMAIL_COMMIT}.zip`
+
+export interface InstallIsmailOptions extends EnsureEnvironmentOptions {
+  /** Also install PyTorch and Demucs for stem separation (about 700 MB more). */
+  separation?: boolean
+}
+
+/** Installs Ismail (and optionally its stem separation extra) into `baseDir/venv`. */
+export async function installIsmail(options: InstallIsmailOptions): Promise<EnvironmentResult> {
+  const run = options.run ?? runCommand
+  const report = (line: string) => {
+    try {
+      options.onProgress?.(line)
+    } catch {
+      // Progress reporting must not break installation.
+    }
+  }
+  const environment = await ensureEnvironment(options)
+  const requirement = `ismail${options.separation ? '[separate]' : ''} @ ${ISMAIL_ARCHIVE}`
+  report(options.separation ? 'Installing Ismail with stem separation (PyTorch and Demucs). It needs about 1.3 GB of disk space.' : 'Installing Ismail. It needs about 650 MB of disk space.')
+  const code = await run(environment.python, ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', requirement], { cwd: options.baseDir, onLine: report })
+  if (code !== 0) throw new SidecarError('unavailable', `Installing Ismail failed (exit code ${code}). The log has pip's output.`)
+  const probe = options.separation ? 'import ismail.api, demucs' : 'import ismail.api'
+  if ((await run(environment.python, ['-c', probe], { cwd: options.baseDir, onLine: report })) !== 0) throw new SidecarError('unavailable', 'Ismail is installed but cannot be imported.')
+  report('Ismail is ready.')
+  return { ...environment, installed: true }
 }

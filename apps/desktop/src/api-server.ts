@@ -29,8 +29,8 @@ export interface ApiServerOptions {
 }
 
 const STATUS: Record<ApiErrorBody['error']['code'], number> = { unauthorized: 401, forbidden: 403, invalid: 400, not_found: 404, conflict: 409, unavailable: 503, internal: 500 }
-const READ_RUNTIME = ['analysis.run', 'proposal.list', 'proposal.status']
-const JOB_RUNTIME = ['render.mix', 'render.stems', 'analysis.run']
+const READ_RUNTIME = ['analysis.run', 'proposal.list', 'proposal.status', 'ismail.presets']
+const JOB_RUNTIME = ['render.mix', 'render.stems', 'analysis.run', 'ismail.generate', 'ismail.separate']
 const MAX_BODY = 2 * 1024 * 1024
 
 class HttpError extends Error {
@@ -197,7 +197,7 @@ export class ApiServer {
 
   private startJob(request: RuntimeRequest): string {
     const id = `job_${randomUUID()}`
-    const kind = request.action.startsWith('render') ? 'render' : 'analysis'
+    const kind = request.action.startsWith('render') ? 'render' : request.action.startsWith('ismail') ? 'ismail' : 'analysis'
     const update = (patch: Partial<JobState>) => {
       const next = { ...(this.jobs.get(id) as JobState), ...patch }
       this.jobs.set(id, next)

@@ -114,6 +114,29 @@ describe('ApiServer', () => {
     await api.stop()
   })
 
+  it('runs Ismail generation as a job and keeps it off the read token', async () => {
+    const forwarded: unknown[] = []
+    const api = server({
+      request: async (route, body) => {
+        forwarded.push(body)
+        return { status: 200, body: { result: route === 'runtime' && (body as { action: string }).action === 'ismail.presets' ? { presets: [] } : { assetId: 'ast_1' } } }
+      },
+    })
+    const discovery = await api.start()
+    const started = (await call(discovery, 'POST', '/v1/runtime', { body: { action: 'ismail.generate', params: { name: 'Stab' } } })).body as { jobId: string }
+    let job: { status: string; kind?: string; result?: unknown } = { status: 'running' }
+    for (let i = 0; i < 50 && job.status === 'running'; i += 1) {
+      await new Promise((r) => setTimeout(r, 10))
+      job = (await call(discovery, 'GET', `/v1/jobs/${started.jobId}`)).body as typeof job
+    }
+    expect(job).toMatchObject({ status: 'done', kind: 'ismail', result: { assetId: 'ast_1' } })
+    expect(forwarded[0]).toMatchObject({ action: 'ismail.generate', params: { name: 'Stab', jobId: started.jobId } })
+    expect((await call(discovery, 'POST', '/v1/runtime', { token: discovery.readToken, body: { action: 'ismail.generate' } })).status).toBe(403)
+    expect((await call(discovery, 'POST', '/v1/runtime', { token: discovery.readToken, body: { action: 'ismail.separate' } })).status).toBe(403)
+    expect((await call(discovery, 'POST', '/v1/runtime', { token: discovery.readToken, body: { action: 'ismail.presets' } })).status).toBe(200)
+    await api.stop()
+  })
+
   it('merges app progress into jobs and cancels them through the app', async () => {
     const seen: { action: string; params?: Record<string, unknown> }[] = []
     let finish: (value: { status: number; body: unknown }) => void = () => undefined

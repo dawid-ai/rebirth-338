@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { ensureEnvironment, findPython, SidecarError, SidecarSupervisor, venvPython, type CommandRunner, type SidecarOptions, type SidecarStatus } from './sidecar'
+import { ISMAIL_ARCHIVE, ensureEnvironment, findPython, installIsmail, SidecarError, SidecarSupervisor, venvPython, type CommandRunner, type SidecarOptions, type SidecarStatus } from './sidecar'
 
 const bridgeDir = fileURLToPath(new URL('../../../python/ismail-bridge', import.meta.url))
 const python = findPython()
@@ -24,7 +24,7 @@ for line in sys.stdin:
     message = json.loads(line)
     request_id, method = message['id'], message['method']
     if method == 'hello':
-        reply(request_id, {'protocol': 1, 'backend': 'fake', 'pid': os.getpid()})
+        reply(request_id, {'protocol': 2, 'backend': 'fake', 'pid': os.getpid()})
     elif method == 'slow':
         pass
     elif method == 'freeze':
@@ -116,7 +116,7 @@ describe.skipIf(!hasNumpy)('SidecarSupervisor with the real sidecar', () => {
     expect(supervisor.status).toBe('ready')
     expect(statuses).toEqual(['starting', 'ready'])
     const hello = await supervisor.request<{ protocol: number; backend: string; capabilities: string[] }>('hello')
-    expect(hello.protocol).toBe(1)
+    expect(hello.protocol).toBe(2)
     expect(hello.backend).toBe('builtin')
     expect(hello.capabilities).toContain('analyze')
   }, TEST_TIMEOUT)
@@ -309,6 +309,29 @@ describe('ensureEnvironment', () => {
     const second = await ensureEnvironment({ baseDir: root, python: 'py-test', run, platform: 'win32' })
     expect(second).toEqual({ python: interpreter, created: false, installed: false })
     expect(calls).toEqual([[interpreter, '-c', 'import numpy']])
+  })
+
+  it('installs the pinned Ismail archive, with the separation extra on request', async () => {
+    const interpreter = venvPython(join(root, 'venv'), 'win32')
+    mkdirSync(dirname(interpreter), { recursive: true })
+    writeFileSync(interpreter, '')
+    const calls: string[][] = []
+    const run: CommandRunner = async (command, args) => {
+      calls.push([command, ...args])
+      return 0
+    }
+    const result = await installIsmail({ baseDir: root, python: 'py-test', run, platform: 'win32', separation: true })
+    expect(result).toMatchObject({ python: interpreter, installed: true })
+    expect(ISMAIL_ARCHIVE).toMatch(/^https:\/\/github\.com\/newsbubbles\/ismail\/archive\/[0-9a-f]{40}\.zip$/)
+    expect(calls).toContainEqual([interpreter, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', `ismail[separate] @ ${ISMAIL_ARCHIVE}`])
+    expect(calls.at(-1)).toEqual([interpreter, '-c', 'import ismail.api, demucs'])
+    const failing: CommandRunner = async (_command, args) => (args.includes('install') ? 1 : 0)
+    // A first install starts before the data folder exists; commands run inside it.
+    const fresh = join(root, 'not-yet', 'python')
+    await rejection(installIsmail({ baseDir: fresh, python: 'py-test', run: failing, platform: 'win32' }))
+    expect(existsSync(fresh)).toBe(true)
+    const error = await rejection(installIsmail({ baseDir: root, python: 'py-test', run: failing, platform: 'win32' }))
+    expect(error).toMatchObject({ code: 'unavailable', message: expect.stringContaining('Installing Ismail failed') })
   })
 
   it('reinstalls numpy into an existing venv that lacks it and reports failures', async () => {

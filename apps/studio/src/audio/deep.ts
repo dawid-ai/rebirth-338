@@ -21,6 +21,9 @@ export interface DeepResult {
   kind: 'analyze' | 'compare'
   revision: number
   backend: string
+  /** Ismail's text reports (overview, key, chords; or comparison, alignment, and the reference's tempo and key). */
+  reports: { name: string; text: string }[]
+  reportErrors: string[]
   summary: Record<string, number | null>
   findings: DeepFinding[]
   sections: { name: string; lufs: number | null; truePeak: number | null }[]
@@ -57,6 +60,22 @@ async function renderWav(): Promise<{ wav: ArrayBuffer; sections: { id: string; 
 }
 
 type Metrics = Record<string, unknown>
+type IsmailExtra = { reports?: Record<string, string>; errors?: Record<string, string> } | undefined
+
+const REPORT_TITLES: Record<string, string> = { overview: 'Sections and key', key: 'Key', chords: 'Chords per bar', compare: 'Bar-by-bar comparison', align: 'Timing against the reference', referenceKey: 'Reference key', referenceGrid: 'Reference tempo and grid' }
+
+function ismailReports(extra: IsmailExtra): Pick<DeepResult, 'reports' | 'reportErrors'> {
+  return {
+    reports: Object.entries(extra?.reports ?? {}).map(([key, text]) => ({ name: REPORT_TITLES[key] ?? key, text })),
+    reportErrors: Object.entries(extra?.errors ?? {}).map(([key, message]) => `${REPORT_TITLES[key] ?? key}: ${message}`),
+  }
+}
+
+/** Ismail counts beats in quarter notes. */
+function tempo(): { bpm: number; beatsPerBar: number } {
+  const { project } = getState()
+  return { bpm: project.tempo, beatsPerBar: Math.max(1, Math.round((project.meter.numerator * 4) / project.meter.denominator)) }
+}
 const num = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? Math.round(value * 10) / 10 : null)
 
 export async function runDeep(kind: 'analyze' | 'compare'): Promise<void> {
@@ -68,22 +87,24 @@ export async function runDeep(kind: 'analyze' | 'compare'): Promise<void> {
   try {
     const { wav, sections, names } = await renderWav()
     if (kind === 'analyze') {
-      const response = (await desktop.deepAnalyze({ wav, sections })) as { backend: string; metrics: Metrics; sections: { id: string; metrics: Metrics }[] }
+      const response = (await desktop.deepAnalyze({ wav, sections, tempo: tempo() })) as { backend: string; metrics: Metrics; sections: { id: string; metrics: Metrics }[]; ismail?: IsmailExtra }
       result = {
         kind,
         revision,
         backend: response.backend,
+        ...ismailReports(response.ismail),
         summary: { lufs: num(response.metrics.integratedLufs), truePeak: num(response.metrics.truePeakDbtp), crest: num(response.metrics.crestDb), centroid: num(response.metrics.spectralCentroidHz), correlation: num(response.metrics.stereoCorrelation) },
         findings: [],
         sections: response.sections.map((s) => ({ name: names.get(s.id) ?? s.id, lufs: num(s.metrics.integratedLufs), truePeak: num(s.metrics.truePeakDbtp) })),
       }
     } else {
-      const response = (await desktop.deepCompare({ wav })) as { backend: string; differences: Record<string, { difference?: number }>; findings: DeepFinding[] } | null
+      const response = (await desktop.deepCompare({ wav, tempo: tempo() })) as { backend: string; differences: Record<string, { difference?: number }>; findings: DeepFinding[]; ismail?: IsmailExtra } | null
       if (!response) return
       result = {
         kind,
         revision,
         backend: response.backend,
+        ...ismailReports(response.ismail),
         summary: { lufsDifference: num(response.differences.integratedLufs?.difference), truePeakDifference: num(response.differences.truePeakDbtp?.difference), crestDifference: num(response.differences.crestDb?.difference) },
         findings: response.findings ?? [],
         sections: [],

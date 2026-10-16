@@ -141,7 +141,7 @@ const COMMANDS: Record<string, CommandDef> = {
   },
   cancel: {
     usage: 'reborn cancel <job>',
-    summary: 'Cancel a running render or analysis job.',
+    summary: 'Cancel a running render, analysis, generation, or separation job.',
     run: async (ctx) => {
       const id = one(ctx, 'job')
       const job = await (await ctx.client()).cancelJob(id)
@@ -154,6 +154,30 @@ const COMMANDS: Record<string, CommandDef> = {
     details: 'Without --wait, prints the job ID and returns. Follow it with `reborn watch`.',
     flags: { ...JOB_FLAGS, stems: 'boolean', out: 'string' },
     run: render,
+  },
+  presets: {
+    usage: 'reborn presets',
+    summary: "List Ismail's instrument presets and voices for `reborn generate`.",
+    run: presets,
+  },
+  generate: {
+    usage: 'reborn generate <instrument> "<notes>" [--name N] [--track T] [--bar N] [--tail seconds] [--wait]',
+    summary: 'Synthesize a sound with Ismail and place it in the project.',
+    details: [
+      '<instrument> is a preset (acid_bass), voice:<name> (voice:growl), or an Ismail instrument as JSON.',
+      'Notes: start beat, pitch, length in beats, velocity; one per line or separated by ";". A comma makes a chord.',
+      'With --track, a Sampler loads the sound and an Audio track gets a clip at --bar; otherwise it lands on a new audio track.',
+      'Example: reborn generate acid_bass "0 C2 0.5 110; 0.5 C3 0.5" --name Stab --wait',
+    ].join('\n'),
+    flags: { ...JOB_FLAGS, name: 'string', track: 'string', bar: 'string', tail: 'string' },
+    run: generate,
+  },
+  separate: {
+    usage: 'reborn separate (--clip ID | --asset ID | --track T) [--bar N] [--wait]',
+    summary: 'Split audio into drums, bass, other, and vocals on new audio tracks with Ismail.',
+    details: 'A clip keeps its position, offset, gain, and fades on each stem. --track takes a Deck or a Sampler source. The original audio is unchanged.',
+    flags: { ...JOB_FLAGS, clip: 'string', asset: 'string', track: 'string', bar: 'string' },
+    run: separate,
   },
   analyze: {
     usage: 'reborn analyze [--bars FROM:TO] [--wait] [--timeout seconds]',
@@ -472,6 +496,75 @@ async function analyze(ctx: Context): Promise<void> {
   const job = await settleJob(ctx, response, 'Analysis')
   if (!job) return
   ctx.out(ctx.json ? compact(job) : formatReport(job.result))
+}
+
+async function presets(ctx: Context): Promise<void> {
+  noArgs(ctx)
+  const response = await runtime(ctx, 'ismail.presets', {})
+  if (ctx.json) return ctx.out(compact(response.result))
+  const listed = (response.result ?? {}) as { presets?: { name: string; type: string }[]; voices?: { name: string; family: string; summary: string }[] }
+  ctx.out(
+    [
+      'Presets:',
+      ...(listed.presets ?? []).map((p) => `  ${p.name.padEnd(20)} ${p.type}`),
+      'Voices (use voice:<name>):',
+      ...(listed.voices ?? []).map((v) => `  ${v.name.padEnd(20)} ${v.summary}`),
+    ].join('\n'),
+  )
+}
+
+function parseInstrument(text: string): string | Record<string, unknown> {
+  if (text.startsWith('voice:')) return { type: 'code', voice: text.slice(6) }
+  if (!text.trimStart().startsWith('{')) return text.startsWith('preset:') ? text.slice(7) : text
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>
+  } catch {
+    // Reported below.
+  }
+  throw usageError('<instrument> JSON must be an object, for example {"type":"synth","oscs":[{"wave":"saw"}]}.')
+}
+
+function numberFlag(ctx: Context, name: string, min: number, max: number): number | undefined {
+  const text = stringFlag(ctx, name)
+  if (text === undefined) return undefined
+  const value = Number(text)
+  if (!Number.isFinite(value) || value < min || value > max) throw usageError(`--${name} must be a number from ${min} to ${max}; got "${text}".`)
+  return value
+}
+
+async function generate(ctx: Context): Promise<void> {
+  const [instrumentText, notes, ...extra] = ctx.args.positionals
+  if (!instrumentText || !notes) throw usageError('Usage: reborn generate <instrument> "<notes>"', 'Run `reborn presets` to list instruments.')
+  if (extra.length) throw usageError(`Unexpected argument "${extra[0]}". Quote the notes.`)
+  const instrument = parseInstrument(instrumentText)
+  const name = stringFlag(ctx, 'name') ?? (typeof instrument === 'string' ? instrument.replace(/_/g, ' ') : String(instrument.voice ?? 'sound'))
+  const bar = stringFlag(ctx, 'bar')
+  const tail = numberFlag(ctx, 'tail', 0, 30)
+  const track = stringFlag(ctx, 'track')
+  const params = { name, instrument, notes, ...(tail !== undefined && { tailSeconds: tail }), ...(track && { trackId: track }), ...(bar !== undefined && { bar: positiveInt(bar, 'bar') }) }
+  const response = await runtime(ctx, 'ismail.generate', params)
+  const job = await settleJob(ctx, response, 'Generation')
+  if (!job) return
+  if (ctx.json) return ctx.out(compact(job))
+  const result = (job.result ?? {}) as { name?: string; summary?: string; trackId?: string | null; assetId?: string }
+  ctx.out(`Generated ${result.name ?? name}${result.trackId ? ` on track ${result.trackId}` : ''} (asset ${result.assetId}).${result.summary ? `\n${result.summary}` : ''}`)
+}
+
+async function separate(ctx: Context): Promise<void> {
+  noArgs(ctx)
+  const clip = stringFlag(ctx, 'clip')
+  const asset = stringFlag(ctx, 'asset')
+  const track = stringFlag(ctx, 'track')
+  if ([clip, asset, track].filter(Boolean).length !== 1) throw usageError('Pass exactly one of --clip, --asset, or --track.')
+  const bar = stringFlag(ctx, 'bar')
+  const params = { ...(clip && { clipId: clip }), ...(asset && { assetId: asset }), ...(track && { trackId: track }), ...(bar !== undefined && { bar: positiveInt(bar, 'bar') }) }
+  const response = await runtime(ctx, 'ismail.separate', params)
+  const job = await settleJob(ctx, response, 'Stem separation')
+  if (!job) return
+  if (ctx.json) return ctx.out(compact(job))
+  const stems = ((job.result ?? {}) as { stems?: { name: string; trackId: string | null }[] }).stems ?? []
+  ctx.out(['Separated into new audio tracks:', ...stems.map((stem) => `  ${stem.name.padEnd(8)} ${stem.trackId ?? ''}`)].join('\n'))
 }
 
 async function watch(ctx: Context): Promise<void> {

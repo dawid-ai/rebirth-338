@@ -5,7 +5,7 @@ import { studio } from '@reborn/studio-core'
 import { engine, importAudioFile } from '../audio/host'
 import { mono, peaks } from '../audio/peaks'
 import { PAD_KEYS, PAD_ORDER, recordHit } from '../audio/recorder'
-import { dispatch, getState, select, toast, useStudio } from '../state/store'
+import { type DispatchOptions, dispatch, getState, select, toast, useStudio } from '../state/store'
 
 type Track = studio.Track
 type Clip = studio.Clip
@@ -76,18 +76,18 @@ function FilePicker({ onPick, label }: { onPick: (file: File) => void; label: st
   )
 }
 
-export async function loadIntoSampler(trackId: string, assetId: string) {
+export async function loadIntoSampler(trackId: string, assetId: string, history?: DispatchOptions) {
   const buffer = engine.buffer(assetId)
   const name = getState().project.assets[assetId]?.name ?? 'sample'
   if (!buffer) {
-    dispatch({ type: 'sample.slice', params: { trackId, assetId, slices: [0], mode: 'manual', assignPads: true } }, { label: `Load ${name}` })
+    dispatch({ type: 'sample.slice', params: { trackId, assetId, slices: [0], mode: 'manual', assignPads: true } }, history ?? { label: `Load ${name}` })
     return
   }
   const analysis = analyzeSource(assetId, buffer)
   const bars = analysis.bpm > 0 ? Math.max(0.25, Math.round(((buffer.duration * analysis.bpm) / 240) * 4) / 4) : null
   dispatch(
     { type: 'sample.slice', params: { trackId, assetId, slices: analysis.transients, mode: 'transient', bpm: analysis.bpm || undefined, bpmConfidence: analysis.bpmConfidence, ...(bars !== null && { bars }), assignPads: true } },
-    { label: `Load and chop ${name}` },
+    history ?? { label: `Load and chop ${name}` },
   )
   select({ kind: 'slice', trackId, index: null })
 }

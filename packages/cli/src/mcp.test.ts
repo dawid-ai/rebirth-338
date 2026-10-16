@@ -191,6 +191,22 @@ describe('MCP tools', () => {
     await mcp.close()
   })
 
+  it('generates and separates through Ismail jobs, and hides them when read-only', async () => {
+    const mcp = harness()
+    const generated = await mcp.call('ismail_generate', { name: 'Stab', instrument: 'acid_bass', notes: '0 C2 0.5' })
+    expect(generated.data).toMatchObject({ status: 'done', result: { assetId: 'ast_generated', name: 'Stab' } })
+    const separated = await mcp.call('ismail_separate', { clipId: 'clp_1' })
+    expect(separated.data).toMatchObject({ status: 'done', result: { stems: expect.arrayContaining([expect.objectContaining({ name: 'vocals' })]) } })
+    expect((await mcp.call('ismail_presets')).data).toMatchObject({ status: 'done', result: { presets: [{ name: 'acid_bass' }] } })
+    await mcp.close()
+    const readOnly = harness({ readOnly: true })
+    const names = (await readOnly.tools()).map((t) => t.name)
+    expect(names).toContain('ismail_presets')
+    expect(names).not.toContain('ismail_generate')
+    expect(names).not.toContain('ismail_separate')
+    await readOnly.close()
+  })
+
   it('runs analysis as a job and returns its result', async () => {
     const mcp = harness()
     const result = await mcp.call('analysis_run', { from: 1, to: 8 })

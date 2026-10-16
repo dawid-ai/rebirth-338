@@ -207,6 +207,51 @@ export class McpServer {
       },
     })
     add({
+      name: 'ismail_presets',
+      description: "List Ismail's instrument presets and voices for ismail_generate. Needs Ismail installed in RE:BORN (Browser > Generate).",
+      inputSchema: empty,
+      annotations: { readOnlyHint: true },
+      call: () => this.callRuntime('ismail.presets', {}),
+    })
+    if (!this.options.readOnly) {
+      add({
+        name: 'ismail_generate',
+        description:
+          'Synthesize a sound with Ismail and add it to the project as one undo step. With trackId, a Sampler loads it and an Audio track gets a clip at bar; otherwise it lands on a new audio track. Returns the new asset and Ismail\'s timbre description.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Name for the sound and its track.' },
+            instrument: { description: 'A preset name from ismail_presets (for example "acid_bass"), or an Ismail instrument object such as {"type": "code", "voice": "growl"}.', anyOf: [{ type: 'string' }, { type: 'object' }] },
+            notes: { type: 'string', description: 'Ismail notes: "start_beat pitch length_beats [velocity]", one per line or separated by ";". A comma makes a chord: "0 C3,E3,G3 2".' },
+            tailSeconds: { type: 'number', minimum: 0, maximum: 30, description: 'Seconds of release after the last note. Default 1.' },
+            trackId: { type: 'string', description: 'Sampler or Audio track to receive the sound.' },
+            bar: { type: 'integer', minimum: 1, description: 'Bar (1-based) for the clip. Defaults to the playhead.' },
+          },
+          required: ['name', 'instrument', 'notes'],
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: false },
+        call: (args) => this.callRuntime('ismail.generate', args),
+      })
+      add({
+        name: 'ismail_separate',
+        description: 'Split audio into drums, bass, other, and vocals with Ismail (Demucs), each on a new audio track, as one undo step. The source is unchanged. Pass clipId (stems keep its position), assetId, or a Deck or Sampler trackId. Can take minutes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            clipId: { type: 'string', description: 'Audio clip to separate.' },
+            assetId: { type: 'string', description: 'Audio asset to separate.' },
+            trackId: { type: 'string', description: 'Deck or Sampler track whose audio to separate.' },
+            bar: { type: 'integer', minimum: 1, description: 'Bar (1-based) for the stems when not separating a clip.' },
+          },
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: false },
+        call: (args) => this.callRuntime('ismail.separate', args),
+      })
+    }
+    add({
       name: 'proposal_status',
       description: 'Check whether the user applied, partly applied, or rejected a proposal. Without proposalId, lists proposals.',
       inputSchema: { type: 'object', properties: { proposalId: { type: 'string', description: 'Proposal ID from an edit result.' } }, additionalProperties: false },

@@ -72,3 +72,86 @@ def write_float(path: str, signal: np.ndarray, rate: int = 48000, bits: int = 32
 
 def db(value: float) -> float:
     return 20.0 * float(np.log10(value))
+
+
+FAKE_ISMAIL_API = '''
+import json
+import os
+import shutil
+import sys
+
+
+class OpError(ValueError):
+    pass
+
+
+def project_new(project, bpm, length_bars, beats_per_bar=4, offset_sec=0.0):
+    if bpm == 99:
+        sys.exit(3)
+    print('noise on stdout must not corrupt the protocol')
+    os.makedirs(os.path.join(project, 'sounds'), exist_ok=True)
+    with open(os.path.join(project, 'project.json'), 'w') as handle:
+        json.dump({'bpm': bpm, 'length_bars': length_bars, 'beats_per_bar': beats_per_bar}, handle)
+    return 'created'
+
+
+def analyze_overview(project, source=None):
+    return f'overview of {os.path.basename(source)}'
+
+
+def analyze_key(project, source=None):
+    return 'key: A minor'
+
+
+def analyze_chords(project, source=None, bars=None):
+    raise OpError(f'chords failed for bars {bars}')
+
+
+def compare(project, a='render', b='ref'):
+    return 'SCORES chroma_sim 1.000'
+
+
+def align(project, a='render', b='ref'):
+    return 'B is +0.0 ms relative to A'
+
+
+def analyze_grid(project, source=None):
+    return 'tempo 120.00 BPM'
+
+
+def sound_make(project, name, instrument, notes='0 C4 1', fx=None, tail_sec=1.0, normalize=True, describe=True):
+    if instrument == 'missing':
+        raise OpError("unknown preset 'missing'; presets: pluck")
+    with open(os.path.join(project, 'project.json')) as handle:
+        bpm = json.load(handle)['bpm']
+    source = os.environ['FAKE_ISMAIL_WAV']
+    shutil.copyfile(source, os.path.join(project, 'sounds', name + '.wav'))
+    return f"sound {name!r}: 0.50s" + chr(10) + f"envelope: {instrument} at {bpm} BPM, notes {notes}"
+
+
+OPS = {name: value for name, value in dict(globals()).items() if callable(value) and not name.startswith('_') and name != 'OpError'}
+'''
+
+FAKE_ISMAIL_EXTRAS = {
+    'presets.py': "PRESETS = {'pluck': {'type': 'synth'}, 'kick': {'type': 'kick'}}\n",
+    'voices.py': "def available(root=None):\n    return [('growl', 'built-in/bass', 'dubstep bass engine')]\n",
+    'separate.py': (
+        'import os, shutil\n'
+        'def separate(path, outdir, model="htdemucs_ft"):\n'
+        '    os.makedirs(outdir, exist_ok=True)\n'
+        '    for name in ("drums", "bass"):\n'
+        '        shutil.copyfile(path, os.path.join(outdir, name + ".wav"))\n'
+        '    return ["drums", "bass"]\n'
+    ),
+}
+
+
+def write_fake_ismail(directory: str, name: str) -> str:
+    """Write a package shaped like Ismail (``api.OPS``, presets, voices, separate) and return its parent folder."""
+    package = os.path.join(directory, name)
+    os.makedirs(package, exist_ok=True)
+    files = {'__init__.py': "__version__ = '9.9.9'\n", 'api.py': FAKE_ISMAIL_API, **FAKE_ISMAIL_EXTRAS}
+    for file, source in files.items():
+        with open(os.path.join(package, file), 'w', encoding='utf-8') as handle:
+            handle.write(source)
+    return directory

@@ -1,8 +1,10 @@
-import { Check, Eye, EyeOff, PanelRight, Play, Printer, Sparkles, Square, Trash2, Unlink, X } from 'lucide-react'
+import { Check, Eye, EyeOff, PanelRight, Play, Printer, Sparkles, Split, Square, Trash2, Unlink, X } from 'lucide-react'
 import type { CSSProperties, ReactNode } from 'react'
 import { studio } from '@reborn/studio-core'
 import { engine } from '../audio/host'
+import { separateStems, useIsmail } from '../audio/ismail'
 import { resample } from '../audio/resample'
+import { desktop } from '../platform/desktop'
 import { recordParamMove } from '../state/record'
 import { splitSelectedClip } from '../state/clipActions'
 import { modifiers } from '../state/modifiers'
@@ -72,6 +74,20 @@ function PrintButton({ onPrint }: { onPrint: () => void }) {
       <button type="button" className="chip-btn" onClick={onPrint} title="Render this source to a new sample on an audio track. The source stays as it is.">
         <Printer size={12} />
         Print bars {from + 1}–{to} to audio
+      </button>
+    </div>
+  )
+}
+
+/** Stem separation through Ismail (desktop only): stems land on new audio tracks; the source is unchanged. */
+function SeparateButton({ assetId, clipId }: { assetId: string; clipId?: string }) {
+  const busy = useIsmail((s) => s.busy)
+  if (!desktop) return null
+  return (
+    <div className="insp-row">
+      <button type="button" className="chip-btn" disabled={busy !== null} onClick={() => void separateStems(assetId, clipId)} title="Split into drums, bass, other, and vocals with Ismail (Demucs). Each stem gets a new audio track; the source stays as it is.">
+        <Split size={12} />
+        {busy === 'separate' ? 'Separating stems…' : 'Separate stems'}
       </button>
     </div>
   )
@@ -260,6 +276,7 @@ function DeckPanel({ track }: { track: Track }) {
         ))}
       </div>
       <Toggle label="Loop" on={device.loop} onChange={(loop) => set({ loop }, 'Deck loop')} />
+      {device.assetId && <SeparateButton assetId={device.assetId} />}
     </Group>
   )
 }
@@ -337,7 +354,7 @@ function ClipPanel({ clipId }: { clipId: string }) {
       <h2 className="insp-title" style={{ '--track': track?.color } as CSSProperties}>
         {pattern?.name ?? (clip.assetId ? project.assets[clip.assetId]?.name : 'Clip')}
         <small>
-          Clip on {track?.name} · bars {clip.start + 1}–{studio.clipEnd(clip)}
+          Clip on {track?.name} · {Number.isInteger(clip.start) && Number.isInteger(clip.length) ? `bars ${clip.start + 1}–${studio.clipEnd(clip)}` : `bar ${clip.start + 1}, ${clip.length} bars long`}
         </small>
       </h2>
       {pattern && (
@@ -371,6 +388,7 @@ function ClipPanel({ clipId }: { clipId: string }) {
           Delete
         </button>
       </div>
+      {clip.assetId && <SeparateButton assetId={clip.assetId} clipId={clip.id} />}
       <p className="muted small">Drag to move, Alt-drag to copy as a linked repeat, drag the right edge to resize. Ctrl+D duplicates.</p>
     </>
   )
@@ -570,6 +588,7 @@ function SlicePanel({ trackId, index }: { trackId: string; index: number | null 
           <dt>Origin</dt>
           <dd>{asset?.origin.kind ?? '—'}</dd>
         </dl>
+        <SeparateButton assetId={source.assetId} />
         <p className="muted small">Click a slice to audition and inspect it. Double-click the waveform to add a marker; Delete removes the selected marker.</p>
       </>
     )

@@ -26,8 +26,11 @@ The command uses the app's own runtime, so you don't need Node.js. From a source
 | `reborn render --wait` | Renders the mix and prints the WAV path, with progress on stderr. Add `--stems` for one file per track. |
 | `reborn analyze --bars 1:16 --wait` | Prints loudness, peaks, band balance, and warnings. |
 | `reborn undo`, `redo`, `save` | Edits history and saves. |
+| `reborn presets` | Lists Ismail's instrument presets and voices. |
+| `reborn generate acid_bass "0 C2 0.5 110; 0.5 C3 0.5" --name Stab --wait` | Synthesizes a sound with Ismail and adds it on a new audio track. Add `--track` for a Sampler or Audio track, and `--bar` to place it. |
+| `reborn separate --clip <id> --wait` | Splits an audio clip into stems on new audio tracks. Also takes `--asset`, or `--track` for a Deck or Sampler. |
 | `reborn open path/to/Beat.reborn` | Opens a project. Refuses if the open project has unsaved changes, unless you add `--discard-changes`. |
-| `reborn cancel <job>` | Cancels a render or analysis job. Pressing `Ctrl+C` during `--wait` also cancels it. |
+| `reborn cancel <job>` | Cancels a render, analysis, generation, or separation job. Pressing `Ctrl+C` during `--wait` also cancels it. |
 | `reborn watch` | Streams project, transport, job, and proposal events. |
 
 Add `--json` to any command for machine-readable output. Add `--read-only` to use the read token, so edits fail.
@@ -52,9 +55,9 @@ For other MCP clients, use this server entry:
 }
 ```
 
-The server exposes one tool per registry command (for example `pattern_write`, `mixer_set`, and `mixer_trace`), plus `render_mix`, `render_stems`, `analysis_run`, transport tools, `history_undo`, and `proposal_status`.
+The server exposes one tool per registry command (for example `pattern_write`, `mixer_set`, and `mixer_trace`), plus `render_mix`, `render_stems`, `analysis_run`, transport tools, `history_undo`, and `proposal_status`. With Ismail installed in RE:BORN, `ismail_presets`, `ismail_generate`, and `ismail_separate` let an agent design sounds and split audio into stems.
 
-Agent edits arrive in RE:BORN as proposals you review, unless you turned on direct agent edits in the agent settings. Each edit result says whether it was applied or is pending; agents check `proposal_status` before relying on a change.
+Agent edits arrive in RE:BORN as proposals you review, unless you turned on direct agent edits in the agent settings. Each edit result says whether it was applied or is pending; agents check `proposal_status` before relying on a change. Generation and separation only add new assets and tracks, so they apply directly as one undo step each.
 
 ## Security
 

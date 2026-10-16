@@ -8,13 +8,12 @@ import queue
 import subprocess
 import sys
 import tempfile
-import textwrap
 import threading
 import time
 import unittest
 from typing import Any, Callable
 
-from _support import PACKAGE_DIR, sine, write_pcm
+from _support import PACKAGE_DIR, sine, write_fake_ismail, write_pcm
 
 Message = dict[str, Any]
 
@@ -98,7 +97,7 @@ class ProtocolTest(unittest.TestCase):
         sidecar = self.start()
         sidecar.send('h1', 'hello')
         hello = sidecar.reply('h1')['result']
-        self.assertEqual(hello['protocol'], 1)
+        self.assertEqual(hello['protocol'], 2)
         self.assertEqual(hello['backend'], 'builtin')
         self.assertIn('analyze', hello['capabilities'])
         self.assertIsInstance(hello['version'], str)
@@ -169,34 +168,27 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(sidecar.reply('c2')['result']['cancelled'], False)
 
     def test_backend_crash_returns_backend_error(self) -> None:
-        module_dir = os.path.join(self.dir, 'crashy')
-        os.makedirs(module_dir, exist_ok=True)
-        with open(os.path.join(module_dir, 'crashy_ismail.py'), 'w', encoding='utf-8') as handle:
-            handle.write(textwrap.dedent('''
-                import sys
-
-                def analyze(path):
-                    print('noise on stdout must not corrupt the protocol')
-                    raise RuntimeError('model weights are missing')
-
-                def compare(path, reference):
-                    sys.exit(3)
-            '''))
+        module_dir = write_fake_ismail(os.path.join(self.dir, 'crashy'), 'crashy_ismail')
         sidecar = self.start({
             'REBORN_SIDECAR_BACKEND': 'ismail',
             'REBORN_SIDECAR_ISMAIL_MODULE': 'crashy_ismail',
+            'REBORN_SIDECAR_WORKSPACE': os.path.join(self.dir, 'workspace'),
+            'FAKE_ISMAIL_WAV': self.tone,
             'PYTHONPATH': module_dir,
         })
         sidecar.send('h', 'hello')
         self.assertEqual(sidecar.reply('h')['result']['backend'], 'ismail')
 
-        sidecar.send('a', 'analyze', {'path': self.tone})
-        error = sidecar.reply('a')['error']
-        self.assertEqual(error['code'], 'backend_error')
-        self.assertIn('model weights are missing', error['message'])
+        sidecar.send('a', 'analyze', {'path': self.tone, 'tempo': {'bpm': 128}})
+        result = sidecar.reply('a')['result']
+        self.assertEqual(result['ismail']['reports']['key'], 'key: A minor')
+        self.assertIn('chords failed', result['ismail']['errors']['chords'])
 
-        sidecar.send('c', 'compare', {'path': self.tone, 'reference': self.tone})
-        self.assertEqual(sidecar.reply('c')['error']['code'], 'backend_error')
+        # A backend that exits the interpreter fails only its own request.
+        sidecar.send('g', 'generate', {'name': 'pluck', 'instrument': 'pluck', 'bpm': 99, 'outDir': os.path.join(self.dir, 'out')})
+        self.assertEqual(sidecar.reply('g')['error']['code'], 'backend_error')
+        sidecar.send('h2', 'hello')
+        self.assertIn('result', sidecar.reply('h2'))
 
         sidecar.send('h2', 'hello')
         self.assertIn('result', sidecar.reply('h2'))
@@ -208,6 +200,15 @@ class ProtocolTest(unittest.TestCase):
         result = sidecar.reply('cmp')['result']
         self.assertEqual(result['findings'], [])
         self.assertIn('lowMid', result['differences']['bands'])
+
+    def test_ismail_methods_are_unavailable_on_builtin(self) -> None:
+        sidecar = self.start()
+        sidecar.send('pre', 'presets')
+        self.assertEqual(sidecar.reply('pre')['error']['code'], 'unavailable')
+        sidecar.send('gen', 'generate', {'name': 'pluck', 'instrument': 'pluck', 'outDir': os.path.abspath(self.dir)})
+        self.assertEqual(sidecar.reply('gen')['error']['code'], 'unavailable')
+        sidecar.send('sep', 'separate', {'path': self.tone, 'outDir': 'relative'})
+        self.assertEqual(sidecar.reply('sep')['error']['code'], 'invalid_params')
 
     def test_end_of_input_exits_cleanly(self) -> None:
         sidecar = self.start()

@@ -66,7 +66,7 @@ export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
 
 export interface JobUpdate {
   id: string
-  kind: 'pack' | 'analysis'
+  kind: 'pack' | 'analysis' | 'install'
   status: JobStatus
   completed: number
   total: number
@@ -75,6 +75,49 @@ export interface JobUpdate {
 }
 
 export type LogLevel = 'info' | 'warn' | 'error'
+
+/** Song grid passed to the sidecar so tempo-aware reports number bars like RE:BORN. */
+export interface DeepTempo {
+  bpm: number
+  beatsPerBar: number
+}
+
+export interface IsmailStatus {
+  installed: boolean
+  /** PyTorch and Demucs are installed, so stems can be separated. */
+  separation: boolean
+  version: string | null
+  installing: boolean
+  message: string | null
+}
+
+export interface IsmailPresets {
+  presets: { name: string; type: string }[]
+  voices: { name: string; family: string; summary: string }[]
+}
+
+export interface IsmailGenerateRequest {
+  name: string
+  /** A preset name, or an Ismail instrument object such as `{ type: 'code', voice: 'growl' }`. */
+  instrument: string | Record<string, unknown>
+  /** Notes in Ismail's notes_write format: `beat pitch length [velocity]`, one per line or separated by `;`. */
+  notes: string
+  bpm: number
+  tailSeconds?: number
+}
+
+export interface IsmailSound {
+  name: string
+  /** First line of Ismail's timbre report. */
+  summary: string
+  description: string
+  wav: Uint8Array
+}
+
+export interface IsmailStem {
+  name: string
+  wav: Uint8Array
+}
 
 export type AgentProvider = 'claude-cli' | 'anthropic' | 'openai-compatible'
 
@@ -161,10 +204,18 @@ export interface DesktopBridge {
   /** Number of local API clients seen recently, for the status bar. */
   apiClients(): Promise<number>
   /** Deep analysis through the optional Python sidecar. Progress arrives as `analysis` job updates. */
-  deepAnalyze(request: { wav: ArrayBuffer; sections: { id: string; start: number; end: number }[] }): Promise<unknown>
+  deepAnalyze(request: { wav: ArrayBuffer; sections: { id: string; start: number; end: number }[]; tempo?: DeepTempo }): Promise<unknown>
   /** Asks for a reference file, then compares the render against it. Null when cancelled. */
-  deepCompare(request: { wav: ArrayBuffer }): Promise<unknown | null>
+  deepCompare(request: { wav: ArrayBuffer; tempo?: DeepTempo }): Promise<unknown | null>
   deepCancel(): void
+  ismailStatus(): Promise<IsmailStatus>
+  /** Installs Ismail (and with `separation`, PyTorch and Demucs) into the app's Python environment. Progress arrives as `install` job updates. */
+  ismailInstall(request: { separation: boolean }): Promise<IsmailStatus>
+  ismailPresets(): Promise<IsmailPresets>
+  /** Synthesizes a sound with Ismail. Nothing is added to the project until the studio imports the WAV. */
+  ismailGenerate(request: IsmailGenerateRequest): Promise<IsmailSound>
+  /** Splits a WAV into drums, bass, other, and vocals with Demucs. Cancel with `deepCancel`. */
+  ismailSeparate(request: { wav: ArrayBuffer }): Promise<IsmailStem[]>
   deepStatus(): Promise<{ status: string; backend: string | null; python: string | null; message: string | null }>
 }
 
@@ -195,4 +246,9 @@ export const IPC = {
   deepCompare: 'deep:compare',
   deepCancel: 'deep:cancel',
   deepStatus: 'deep:status',
+  ismailStatus: 'ismail:status',
+  ismailInstall: 'ismail:install',
+  ismailPresets: 'ismail:presets',
+  ismailGenerate: 'ismail:generate',
+  ismailSeparate: 'ismail:separate',
 } as const

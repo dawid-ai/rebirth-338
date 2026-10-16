@@ -102,12 +102,13 @@ kbd { font: 500 10px var(--mono); color: var(--text-3); padding: 1px 4px; border
 .t-btn.agent.has-pending kbd { color: #1a1204aa; border-color: #1a120444; }
 
 /* Browser ---------------------------------------------------------------- */
-.browser { grid-area: browser; display: grid; grid-template-rows: 40px minmax(0, 1fr); background: var(--field-2); border-right: 1px solid var(--line); min-width: 0; overflow: hidden; }
+.browser { grid-area: browser; display: grid; grid-template-rows: 40px minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); background: var(--field-2); border-right: 1px solid var(--line); min-width: 0; overflow: hidden; }
 .browser.is-rail { grid-template-rows: none; align-content: start; justify-items: center; gap: 6px; padding-top: 6px; }
 .browser.is-overlay { position: fixed; left: 0; top: 56px; bottom: 24px; width: 300px; z-index: 40; box-shadow: 18px 0 40px #000a; }
 .scrim { position: fixed; inset: 56px 0 24px; z-index: 35; background: #0006; }
-.tabs { display: flex; gap: 2px; }
-.tabs button { padding: 5px 9px; border-radius: 4px; color: var(--text-3); font-weight: 500; }
+.tabs { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.tabs button { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 5px 8px; border-radius: 4px; color: var(--text-3); font-weight: 500; white-space: nowrap; }
+.tabs button:hover { color: var(--text-2); }
 .tabs button.is-on { color: var(--text); background: var(--field-4); }
 .browser-list { overflow: auto; padding: 10px; display: grid; gap: 6px; align-content: start; }
 .browser-note { margin: 0 2px 4px; color: var(--text-3); font-size: 12px; }

@@ -17,11 +17,11 @@ from . import PROTOCOL_VERSION, __version__
 from .backends import Backend
 from .errors import Cancelled, SidecarError
 from .jobs import JobContext
-from .model import parse_analyze, parse_compare
+from .model import parse_analyze, parse_compare, parse_generate, parse_separate
 
 log = logging.getLogger('reborn_sidecar.server')
 
-JOB_METHODS = ('analyze', 'compare')
+JOB_METHODS = ('analyze', 'compare', 'generate', 'separate', 'presets')
 SHUTDOWN_GRACE_SECONDS = 5.0
 
 
@@ -168,17 +168,26 @@ class Server:
         return {'target': target, 'cancelled': event is not None}
 
     def submit(self, request_id: str, method: str, params: dict[str, Any]) -> None:
-        request = parse_analyze(params) if method == 'analyze' else parse_compare(params)
+        work: Callable[[JobContext], dict[str, Any]]
+        if method == 'analyze':
+            analyze = parse_analyze(params)
+            work = lambda ctx: self._backend.analyze(analyze, ctx)  # noqa: E731
+        elif method == 'compare':
+            compare = parse_compare(params)
+            work = lambda ctx: self._backend.compare(compare, ctx)  # noqa: E731
+        elif method == 'generate':
+            generate = parse_generate(params)
+            work = lambda ctx: self._backend.generate(generate, ctx)  # noqa: E731
+        elif method == 'separate':
+            separate = parse_separate(params)
+            work = lambda ctx: self._backend.separate(separate, ctx)  # noqa: E731
+        else:
+            work = lambda ctx: self._backend.presets()  # noqa: E731
         with self._jobs_lock:
             if request_id in self._jobs:
                 raise SidecarError('invalid_params', f'A request with id {request_id!r} is already running.')
             event = threading.Event()
             self._jobs[request_id] = event
-        work: Callable[[JobContext], dict[str, Any]]
-        if method == 'analyze':
-            work = lambda ctx: self._backend.analyze(request, ctx)  # noqa: E731
-        else:
-            work = lambda ctx: self._backend.compare(request, ctx)  # noqa: E731
         thread = threading.Thread(target=self._run, args=(request_id, method, work, event), name=f'job-{request_id}', daemon=True)
         self._threads = [item for item in self._threads if item.is_alive()]
         self._threads.append(thread)

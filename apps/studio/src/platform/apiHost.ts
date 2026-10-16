@@ -3,6 +3,7 @@ import { encodeWav, renderStems, renderStudio } from '@reborn/audio-engine/studi
 import { loadAgentSettings } from '../agent/agent'
 import { runAnalysis, summarizeReport } from '../audio/analysis'
 import { engine } from '../audio/host'
+import { refreshIsmail, runGenerate, runSeparate } from '../audio/ismail'
 import { openProject, saveProject } from '../state/persistence'
 import { addProposal, onResolved } from '../state/proposals'
 import { dispatch, getState, isEdited, redo, subscribe, undo } from '../state/store'
@@ -157,6 +158,46 @@ async function handle(request: ApiRpcRequest): Promise<Reply> {
       await openProject(params.path)
       const opened = getState()
       return opened.project.id !== before || opened.document.path === params.path ? { status: 200, body: { result: { name: opened.project.name, path: opened.document.path, revision: opened.project.revision } } } : error(404, 'not_found', `Could not open ${params.path}.`)
+    }
+    case 'ismail.presets': {
+      const status = await refreshIsmail()
+      if (!status?.installed || !desktop) return error(503, 'unavailable', 'Ismail is not installed. Install it from Browser › Generate in RE:BORN.')
+      return { status: 200, body: { result: await desktop.ismailPresets() } }
+    }
+    case 'ismail.generate': {
+      const instrument = params.instrument
+      if (typeof params.name !== 'string' || !params.name.trim()) return error(400, 'invalid', 'ismail.generate needs a name.')
+      if (typeof params.notes !== 'string' || !params.notes.trim()) return error(400, 'invalid', 'ismail.generate needs notes, for example "0 C3 1".')
+      if (typeof instrument !== 'string' && (typeof instrument !== 'object' || instrument === null || Array.isArray(instrument))) return error(400, 'invalid', 'ismail.generate needs an instrument: a preset name or an instrument object.')
+      const job = jobControl(params, 'ismail')
+      try {
+        const sound = await runGenerate(
+          { name: params.name.trim(), instrument: instrument as string | Record<string, unknown>, notes: params.notes, ...(typeof params.tailSeconds === 'number' && { tailSeconds: params.tailSeconds }) },
+          { ...(typeof params.trackId === 'string' && { trackId: params.trackId }), ...(typeof params.bar === 'number' && { bar: Math.max(0, params.bar - 1) }) },
+          { origin: 'script', signal: job.signal },
+        )
+        return { status: 200, body: { result: { ...sound, revision: getState().project.revision } } }
+      } catch (failure) {
+        return error(400, 'invalid', failure instanceof Error ? failure.message : String(failure))
+      } finally {
+        job.done()
+      }
+    }
+    case 'ismail.separate': {
+      const project = s.project
+      const clip = typeof params.clipId === 'string' ? project.clips.find((c) => c.id === params.clipId) : undefined
+      const track = typeof params.trackId === 'string' ? project.tracks.find((t) => t.id === params.trackId || t.name === params.trackId) : undefined
+      const assetId = clip?.assetId ?? (typeof params.assetId === 'string' ? params.assetId : undefined) ?? (track?.device.kind === 'deck' ? track.device.assetId : track?.device.kind === 'sampler' ? track.device.source?.assetId : undefined)
+      if (!assetId) return error(400, 'invalid', 'ismail.separate needs an audio clipId, an assetId, or a deck or sampler trackId with audio loaded.')
+      const job = jobControl(params, 'ismail')
+      try {
+        const stems = await runSeparate(assetId, { ...(clip && { clipId: clip.id }), ...(typeof params.bar === 'number' && { bar: Math.max(0, params.bar - 1) }) }, { origin: 'script', signal: job.signal })
+        return { status: 200, body: { result: { stems, revision: getState().project.revision } } }
+      } catch (failure) {
+        return error(400, 'invalid', failure instanceof Error ? failure.message : String(failure))
+      } finally {
+        job.done()
+      }
     }
     case 'proposal.list':
       return { status: 200, body: { result: s.proposals.map((p) => ({ id: p.id, intent: p.intent, status: p.status, changes: p.changes.length, source: p.source })) } }

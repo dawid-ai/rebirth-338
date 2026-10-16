@@ -52,7 +52,7 @@ export interface FakeServer {
   close: () => Promise<void>
 }
 
-const READ_RUNTIME = ['analysis.run', 'proposal.list', 'proposal.status']
+const READ_RUNTIME = ['analysis.run', 'proposal.list', 'proposal.status', 'ismail.presets']
 const STATUS: Record<ApiErrorBody['error']['code'], number> = { unauthorized: 401, forbidden: 403, invalid: 400, not_found: 404, conflict: 409, unavailable: 503, internal: 500 }
 
 class HttpError extends Error {
@@ -141,6 +141,14 @@ export async function startFakeServer(options: FakeServerOptions = {}): Promise<
         return { jobId: startJob('render', { paths: state.project.tracks.map((t) => join(dir, 'stems', `${t.name}.wav`)) }) }
       case 'analysis.run':
         return { jobId: startJob('analysis', { from: params.from ?? 1, to: params.to ?? state.project.length, lufs: -9.24, peak: -0.8, notes: ['Kick and Acid 1 overlap at 60 Hz'] }) }
+      case 'ismail.presets':
+        return { result: { presets: [{ name: 'acid_bass', type: 'synth' }], voices: [{ name: 'growl', family: 'built-in/bass', summary: 'dubstep bass engine' }] } }
+      case 'ismail.generate':
+        if (typeof params.notes !== 'string' || typeof params.name !== 'string') throw new HttpError('invalid', 'ismail.generate needs a name and notes.')
+        return { jobId: startJob('ismail', { assetId: 'ast_generated', trackId: typeof params.trackId === 'string' ? params.trackId : 'trk_new', name: params.name, summary: `sound '${params.name}': 0.26s`, description: `instrument ${JSON.stringify(params.instrument)}` }) }
+      case 'ismail.separate':
+        if (!params.clipId && !params.assetId && !params.trackId) throw new HttpError('invalid', 'ismail.separate needs a clipId, assetId, or trackId.')
+        return { jobId: startJob('ismail', { stems: ['drums', 'bass', 'other', 'vocals'].map((name, i) => ({ name, assetId: `ast_${name}`, trackId: `trk_${i}` })) }) }
       case 'project.open':
         if (state.project.revision > 0 && params.discardChanges !== true) throw new HttpError('conflict', 'The open project has unsaved changes.')
         return { result: { name: 'Opened', path: params.path, revision: 0 } }

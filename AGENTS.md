@@ -10,7 +10,7 @@ This repository is an npm-workspaces monorepo for RE:BORN, a React and TypeScrip
 - `packages/cli/` is the `reborn` CLI and the MCP stdio server. Both talk to the running desktop app through its local API.
 - `apps/studio/` is the v2 UI: `components/` (views, dock, inspector, browser, transport), `state/` (store, persistence, proposals), `audio/` (engine host, export, analysis, resampling), `midi/` (MIDI input and learn), `agent/`, and `platform/` (desktop bridge and asset storage).
 - `apps/desktop/` is the Electron shell: `main.ts` (windows, menus, IPC, `app://` protocol), `preload.ts`, project folders and packing, sessions and crash recovery, background jobs, the local API server, agent providers, the analysis sidecar supervisor, updates, and the CLI installer.
-- `apps/web/` is the v1 web edition. `python/ismail-bridge/` is the optional Python analysis sidecar. `prototypes/phase0/` holds the v2 interaction prototypes.
+- `apps/web/` is the v1 web edition. `python/ismail-bridge/` is the optional Python sidecar: builtin analysis, and Ismail's analysis, sound generation, and stem separation when Ismail is installed. `prototypes/phase0/` holds the v2 interaction prototypes.
 - `docs/` holds the user guide, the CLI and MCP guide, and the release guide.
 
 Keep unit tests beside their subject as `*.test.ts`. Browser automation, audits, and benchmarks live in `scripts/`; golden audio fingerprints live in `scripts/golden/`. Build output goes to each package's `dist/` and installers to `release/`; screenshots, WAV files, and other test output go to ignored `artifacts/`.
@@ -25,6 +25,7 @@ Keep unit tests beside their subject as `*.test.ts`. Browser automation, audits,
 - `npm run dev` and `npm run build` serve and build the v1 web edition in `apps/web/`.
 - `node scripts/studio-smoke.mjs` runs the studio end-to-end workflow against the dev server on port 5175.
 - `node scripts/desktop-smoke.mjs` checks the desktop app: playback, save, export, pack, reopen, UI, CLI, and MCP editing with shared undo, sidecar restarts, and crash recovery. Run `npm run desktop:build` first.
+- `node scripts/ismail-smoke.mjs` installs Ismail into `artifacts/ismail-e2e` through the desktop UI, then checks generation, deep analysis reports, and the CLI. Set `ISMAIL_SMOKE_SEPARATION=1` to also install and test stem separation. It downloads 650 MB to 1.3 GB unless pip's cache has the packages, so it is opt-in. Run `npm run desktop:build` first.
 - `npm run audit:a11y` and `npm run audit:audio` run the accessibility and audio audits against the studio dev server. `node scripts/smoke.mjs` covers the v1 web edition on port 5173.
 
 ## Coding Style & Naming Conventions

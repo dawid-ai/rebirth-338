@@ -39,6 +39,11 @@ const bridge: DesktopBridge = {
   deepCompare: (request) => ipcRenderer.invoke(IPC.deepCompare, request),
   deepCancel: () => ipcRenderer.send(IPC.deepCancel),
   deepStatus: () => ipcRenderer.invoke(IPC.deepStatus),
+  ismailStatus: () => ipcRenderer.invoke(IPC.ismailStatus),
+  ismailInstall: (request) => ipcRenderer.invoke(IPC.ismailInstall, request),
+  ismailPresets: () => ipcRenderer.invoke(IPC.ismailPresets),
+  ismailGenerate: (request) => ipcRenderer.invoke(IPC.ismailGenerate, request),
+  ismailSeparate: (request) => ipcRenderer.invoke(IPC.ismailSeparate, request),
 }
 
 contextBridge.exposeInMainWorld('reborn', bridge)

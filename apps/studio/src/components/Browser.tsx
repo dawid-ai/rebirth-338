@@ -1,4 +1,4 @@
-import { AudioWaveform, Disc3, Drum, FileUp, Folder, FolderOpen, Layers, Package, PanelLeft, Piano, Plus, Save, Waves } from 'lucide-react'
+import { AudioWaveform, Disc3, Drum, FileUp, Folder, FolderOpen, Layers, Package, PanelLeft, Piano, Plus, Save, Sparkles, Waves } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createDemoProject, demoCatalog, studio, type RecentProject } from '@reborn/studio-core'
 import { engine, ensureAssets, importAudioFile } from '../audio/host'
@@ -6,6 +6,7 @@ import { desktop } from '../platform/desktop'
 import { importProjectFile, newProject, openProject, saveProject } from '../state/persistence'
 import { dispatch, getState, loadProject, selectedTrackId, setPrefs, toast, useStudio } from '../state/store'
 import { addTrack } from './AddTrackMenu'
+import { IsmailPanel } from './IsmailPanel'
 import { loadIntoSampler } from './SampleEditors'
 
 const STARTER = [
@@ -231,7 +232,9 @@ function Projects() {
   )
 }
 
-type Tab = 'samples' | 'devices' | 'projects'
+type Tab = 'samples' | 'devices' | 'projects' | 'generate'
+
+const TAB_ICONS = { samples: AudioWaveform, devices: Piano, projects: Folder, generate: Sparkles } as const
 
 export function Browser({ open, overlay, onToggle }: { open: boolean; overlay: boolean; onToggle: () => void }) {
   const [tab, setTab] = useState<Tab>('samples')
@@ -254,6 +257,9 @@ export function Browser({ open, overlay, onToggle }: { open: boolean; overlay: b
         <button type="button" className="icon-btn" onClick={() => show('projects')} title="Projects" aria-label="Projects">
           <Folder size={16} />
         </button>
+        <button type="button" className="icon-btn" onClick={() => show('generate')} title="Generate sounds with Ismail" aria-label="Generate">
+          <Sparkles size={16} />
+        </button>
       </nav>
     )
   }
@@ -261,11 +267,17 @@ export function Browser({ open, overlay, onToggle }: { open: boolean; overlay: b
     <nav className={`browser${overlay ? ' is-overlay' : ''}`} aria-label="Browser" data-region="browser" tabIndex={-1}>
       <div className="panel-head">
         <div className="tabs" role="tablist">
-          {(['samples', 'devices', 'projects'] as Tab[]).map((name) => (
-            <button key={name} type="button" role="tab" aria-selected={tab === name} className={tab === name ? 'is-on' : ''} onClick={() => setTab(name)}>
-              {name[0].toUpperCase() + name.slice(1)}
-            </button>
-          ))}
+          {(['samples', 'devices', 'projects', 'generate'] as Tab[]).map((name) => {
+            const label = name[0].toUpperCase() + name.slice(1)
+            const Icon = TAB_ICONS[name]
+            // Inactive tabs show only their icon so four fit; the name stays as the accessible label.
+            return (
+              <button key={name} type="button" role="tab" aria-selected={tab === name} aria-label={label} title={label} className={tab === name ? 'is-on' : ''} onClick={() => setTab(name)}>
+                <Icon size={14} aria-hidden="true" />
+                {tab === name && <span>{label}</span>}
+              </button>
+            )
+          })}
         </div>
         <button type="button" className="icon-btn" onClick={() => { onToggle(); setPrefs({ browserOpen: false }) }} title="Collapse browser" aria-label="Collapse browser">
           <PanelLeft size={16} />
@@ -274,6 +286,7 @@ export function Browser({ open, overlay, onToggle }: { open: boolean; overlay: b
       {tab === 'samples' && <Samples />}
       {tab === 'devices' && <Devices />}
       {tab === 'projects' && <Projects />}
+      {tab === 'generate' && <IsmailPanel />}
     </nav>
   )
 }
