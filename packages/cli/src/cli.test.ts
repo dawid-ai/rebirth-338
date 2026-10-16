@@ -238,7 +238,10 @@ describe('runtime', () => {
     expect(opened.code).toBe(EXIT.ok)
     expect((lastBody('/v1/runtime') as { params: { path: string } }).params.path).toMatch(/Some Beat\.reborn$/)
     await cli(['run', 'project.update', '--tempo', '99'])
-    expect((await cli(['open', 'Other.reborn'])).code).not.toBe(EXIT.ok)
+    const refused = await cli(['open', 'Other.reborn'])
+    expect(refused.code).toBe(EXIT.generic)
+    expect(refused.stderr).toMatch(/--discard-changes/)
+    expect(refused.stderr).not.toMatch(/changed since/)
     expect((await cli(['open', 'Other.reborn', '--discard-changes'])).code).toBe(EXIT.ok)
   })
 

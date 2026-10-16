@@ -128,9 +128,15 @@ const COMMANDS: Record<string, CommandDef> = {
     summary: 'Open a project folder or file in RE:BORN.',
     details: 'If the open project has unsaved changes, RE:BORN refuses unless you pass --discard-changes.',
     flags: { 'discard-changes': 'boolean' },
-    run: (ctx) => {
+    run: async (ctx) => {
       const path = one(ctx, 'path')
-      return simpleRuntime(ctx, 'project.open', { path: resolvePath(path), ...(ctx.args.flags['discard-changes'] === true && { discardChanges: true }) }, `Opened ${path}.`)
+      try {
+        await simpleRuntime(ctx, 'project.open', { path: resolvePath(path), ...(ctx.args.flags['discard-changes'] === true && { discardChanges: true }) }, `Opened ${path}.`)
+      } catch (error) {
+        // A conflict here means unsaved work, not a stale revision.
+        if (error instanceof CliError && error.code === 'conflict') throw new CliError(error.message, EXIT.generic, 'conflict', 'Run `reborn save` first, or add --discard-changes.')
+        throw error
+      }
     },
   },
   cancel: {
