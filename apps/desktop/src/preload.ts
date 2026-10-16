@@ -35,6 +35,10 @@ const bridge: DesktopBridge = {
   respondApi: (response) => ipcRenderer.send(IPC.apiResponse, response),
   apiClients: () => ipcRenderer.invoke(IPC.apiClients),
   emitApiEvent: (event) => ipcRenderer.send(IPC.apiEvent, event),
+  deepAnalyze: (request) => ipcRenderer.invoke(IPC.deepAnalyze, request),
+  deepCompare: (request) => ipcRenderer.invoke(IPC.deepCompare, request),
+  deepCancel: () => ipcRenderer.send(IPC.deepCancel),
+  deepStatus: () => ipcRenderer.invoke(IPC.deepStatus),
 }
 
 contextBridge.exposeInMainWorld('reborn', bridge)

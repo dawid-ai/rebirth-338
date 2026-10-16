@@ -1,5 +1,7 @@
-import { BrowserWindow, Menu, app, dialog, ipcMain, net, protocol, shell, type IpcMainEvent, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
+import { BrowserWindow, Menu, app, dialog, ipcMain, net, protocol, safeStorage, shell, type IpcMainEvent, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
 import { existsSync, statSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { basename, extname, join, normalize, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
@@ -18,13 +20,19 @@ import {
   studio,
   projectDirectoryName,
 } from '@reborn/studio-core'
+import { AgentService } from './agent'
+import { DeepAnalysis } from './deep-analysis'
+import { ApiServer, type RenderedFile } from './api-server'
 import { JobRunner } from './jobs'
 import { packProjectDirectory, readProjectPath, unpackProject, writeAtomic, writeProjectDirectory } from './project-dir'
 import { SessionStore } from './session'
 
 const APP_ORIGIN = 'app://reborn'
-const DEV_URL = process.argv.includes('--dev') ? (process.env.REBORN_DEV_URL ?? 'http://127.0.0.1:5173') : undefined
-const RENDERER_DIRECTORY = resolve(__dirname, '../../web/dist-desktop')
+const DEV_URL = process.argv.includes('--dev') ? (process.env.REBORN_DEV_URL ?? 'http://127.0.0.1:5175') : undefined
+// The desktop edition runs the v2 studio; the v1 workstation stays on the web.
+const RENDERER_DIRECTORY = app.isPackaged ? join(process.resourcesPath, 'studio') : resolve(__dirname, '../../studio/dist')
+const SIDECAR_DIR = app.isPackaged ? join(process.resourcesPath, 'python', 'ismail-bridge') : resolve(__dirname, '../../../python/ismail-bridge')
+const CLI_BUNDLE = app.isPackaged ? join(process.resourcesPath, 'cli', 'reborn.mjs') : resolve(__dirname, '../../../packages/cli/dist/reborn.mjs')
 const E2E = process.env.REBORN_E2E === '1'
 
 // The product name contains a colon, which Windows forbids in folder names,
@@ -41,6 +49,39 @@ let jobs: JobRunner
 let edited = false
 let closeConfirmed = false
 let finishing = false
+let api: ApiServer | null = null
+let agent: AgentService
+let deep: DeepAnalysis
+const pendingRpc = new Map<string, { resolve: (reply: { status: number; body: unknown }) => void; timer: ReturnType<typeof setTimeout> }>()
+
+function rendererRpc(route: 'status' | 'execute' | 'runtime', body: unknown, timeoutMs = 30_000): Promise<{ status: number; body: unknown }> {
+  return new Promise((resolve, reject) => {
+    if (!mainWindow || mainWindow.webContents.isLoading()) return reject(new Error('The RE:BORN window is not ready.'))
+    const id = randomUUID()
+    const timer = setTimeout(() => {
+      pendingRpc.delete(id)
+      reject(new Error('The RE:BORN window did not answer in time.'))
+    }, timeoutMs)
+    pendingRpc.set(id, { resolve, timer })
+    mainWindow.webContents.send(IPC.apiRequest, { id, route, body })
+  })
+}
+
+async function writeRenderedFiles(files: RenderedFile[], target?: string): Promise<string[]> {
+  const exports = join(app.getPath('music'), 'RE-BORN Exports')
+  const single = files.length === 1 && target && /\.wav$/i.test(target)
+  const directory = target && !single ? target : exports
+  await mkdir(single ? resolve(target!, '..') : directory, { recursive: true })
+  const paths: string[] = []
+  for (const file of files) {
+    const path = single ? target! : join(directory, basename(file.name))
+    const data = file.data instanceof Uint8Array ? file.data : new Uint8Array(file.data)
+    await writeAtomic(path, data)
+    paths.push(path)
+  }
+  log('info', `Wrote ${paths.length} rendered file(s): ${paths.join(', ')}`)
+  return paths
+}
 
 const log = (level: LogLevel, message: string) => void session?.log(level, message)
 
@@ -260,6 +301,42 @@ async function buildMenu() {
 }
 
 function registerIpc() {
+  handle(IPC.agentSettings, () => agent.settings())
+  handle(IPC.agentSetSettings, (patch: Parameters<AgentService['update']>[0]) => agent.update(patch ?? {}))
+  handle(IPC.agentComplete, (request: Parameters<AgentService['complete']>[0]) => agent.complete(request))
+  handle(IPC.agentRunCli, async (prompt: string) => {
+    if (!api) throw new Error('The local API is not running, so the Claude CLI cannot reach RE:BORN.')
+    if (!existsSync(CLI_BUNDLE)) throw new Error('The reborn MCP bundle is missing. Run npm run cli:build.')
+    return agent.runCli(String(prompt), { command: process.execPath, args: [CLI_BUNDLE, 'mcp'], env: { ELECTRON_RUN_AS_NODE: '1', REBORN_API_FILE: api.file } }, app.getPath('temp'))
+  })
+  handle(IPC.apiClients, async () => api?.clientCount() ?? 0)
+  const bytes = (data: unknown) => {
+    const buffer = toArrayBuffer(data)
+    if (!buffer) throw new Error('Expected WAV data.')
+    return new Uint8Array(buffer)
+  }
+  handle(IPC.deepAnalyze, (request: { wav: unknown; sections: { id: string; start: number; end: number }[] }) => deep.analyze(bytes(request?.wav), Array.isArray(request?.sections) ? request.sections : []))
+  handle(IPC.deepCompare, async (request: { wav: unknown }) => {
+    const preset = process.env.REBORN_E2E_REFERENCE_PATH
+    const chosen = preset ?? (await dialog.showOpenDialog(mainWindow!, { title: 'Choose a reference track', properties: ['openFile'], filters: [{ name: 'WAV audio', extensions: ['wav'] }] })).filePaths[0]
+    if (!chosen) return null
+    return deep.compare(bytes(request?.wav), chosen)
+  })
+  handle(IPC.deepStatus, async () => deep.status())
+  ipcMain.on(IPC.deepCancel, (event) => {
+    if (isTrusted(event)) deep.cancel()
+  })
+  ipcMain.on(IPC.apiResponse, (event, response: { id: string; status: number; body: unknown }) => {
+    if (!isTrusted(event)) return
+    const pending = pendingRpc.get(response?.id)
+    if (!pending) return
+    clearTimeout(pending.timer)
+    pendingRpc.delete(response.id)
+    pending.resolve({ status: Number(response.status) || 500, body: response.body })
+  })
+  ipcMain.on(IPC.apiEvent, (event, payload) => {
+    if (isTrusted(event)) api?.emit(payload)
+  })
   handle(IPC.version, async () => app.getVersion())
   handle(IPC.openProject, (path?: string) => openProject(typeof path === 'string' ? path : undefined))
   handle(IPC.saveProject, (request: SaveProjectRequest) => saveProject(request))
@@ -344,7 +421,7 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
-  void mainWindow.loadURL(DEV_URL ?? `${APP_ORIGIN}/index.html`)
+  void mainWindow.loadURL(DEV_URL ?? `${APP_ORIGIN}/index.html${E2E ? '?e2e' : ''}`)
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -361,10 +438,25 @@ if (!app.requestSingleInstanceLock()) {
     await session.start()
     jobs = new JobRunner(sendJob, (message) => log('info', message))
     process.on('uncaughtException', (error) => log('error', `Main process error: ${error.stack ?? error.message}`))
+    agent = new AgentService(app.getPath('userData'), safeStorage)
+    deep = new DeepAnalysis({
+      sidecarDir: SIDECAR_DIR,
+      dataDir: app.getPath('userData'),
+      log: (line) => log('info', line),
+      onProgress: (completed, total, message) => sendJob({ id: 'deep-analysis', kind: 'analysis', status: 'running', completed, total, message }),
+    })
+    if (E2E) Object.assign(globalThis, { __rebornDeep: deep })
     registerProtocol()
     registerIpc()
     await buildMenu()
     createWindow()
+    if (process.env.REBORN_API !== 'off') {
+      api = new ApiServer({ directory: app.getPath('userData'), version: app.getVersion(), rpc: { request: rendererRpc }, writeFiles: writeRenderedFiles, log: (message) => log('info', message), port: process.env.REBORN_API_PORT ? Number(process.env.REBORN_API_PORT) : undefined })
+      await api.start().catch((error) => {
+        log('error', `Local API failed to start: ${String(error)}`)
+        api = null
+      })
+    }
   })
 
   app.on('window-all-closed', () => app.quit())
@@ -374,6 +466,6 @@ if (!app.requestSingleInstanceLock()) {
     finishing = true
     event.preventDefault()
     jobs?.cancelAll()
-    void session.finish().finally(() => app.exit(0))
+    void Promise.allSettled([api?.stop(), deep?.stop(), session.finish()]).finally(() => app.exit(0))
   })
 }

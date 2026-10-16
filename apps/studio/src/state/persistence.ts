@@ -52,10 +52,18 @@ export async function restoreSession(): Promise<void> {
 
 let autosaveTimer = 0
 let lastSaved: StudioProject | null = null
+let lastTitle = ''
 
 export function startAutosave(): void {
   subscribe(() => {
     const s = getState()
+    // The window title follows every change, including a save that only
+    // updates the document's saved revision.
+    const title = `${s.project.name || 'Untitled'}|${isEdited(s)}`
+    if (title !== lastTitle) {
+      lastTitle = title
+      desktop?.setDocumentState({ title: s.project.name || 'Untitled', edited: isEdited(s) })
+    }
     if (s.project === lastSaved) return
     lastSaved = s.project
     window.clearTimeout(autosaveTimer)
@@ -68,7 +76,6 @@ export function startAutosave(): void {
       }
       desktop?.writeRecovery({ studio: project, path: getState().document.path })
     }, 1200)
-    desktop?.setDocumentState({ title: s.project.name || 'Untitled', edited: isEdited(s) })
   })
 }
 

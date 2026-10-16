@@ -209,6 +209,7 @@ export default function App() {
   useEffect(() => {
     if (!desktop) return
     return desktop.onJobUpdate((update) => {
+      if (update.kind !== 'pack') return
       if (update.status === 'done') toast(`Packed ${update.outputPath ?? 'project'}`, 'success')
       else if (update.status === 'failed') toast(`Pack failed: ${update.message ?? ''}`, 'error')
     })

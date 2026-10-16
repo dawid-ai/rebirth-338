@@ -10,10 +10,12 @@
     "test": "vitest run",
     "proto": "vite --config vite.proto.config.ts",
     "proto:build": "tsc -p tsconfig.proto.json && vite build --config vite.proto.config.ts",
-    "desktop:build": "vite build --config apps/web/vite.config.ts --mode desktop && vite build --config apps/desktop/vite.config.ts && vite build --config apps/desktop/vite.config.ts --mode preload",
+    "desktop:build": "vite build --config apps/studio/vite.config.ts && vite build --config packages/cli/vite.config.ts && vite build --config apps/desktop/vite.config.ts && vite build --config apps/desktop/vite.config.ts --mode preload",
     "desktop": "npm run desktop:build && electron apps/desktop",
-    "desktop:dev": "vite build --config apps/desktop/vite.config.ts && vite build --config apps/desktop/vite.config.ts --mode preload && electron apps/desktop --dev",
-    "cli:build": "vite build --config packages/cli/vite.config.ts"
+    "desktop:dev": "vite build --config packages/cli/vite.config.ts && vite build --config apps/desktop/vite.config.ts && vite build --config apps/desktop/vite.config.ts --mode preload && electron apps/desktop --dev",
+    "cli:build": "vite build --config packages/cli/vite.config.ts",
+    "studio": "vite --config apps/studio/vite.config.ts",
+    "studio:build": "vite build --config apps/studio/vite.config.ts"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "5.3.0",

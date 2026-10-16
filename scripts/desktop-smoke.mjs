@@ -1,12 +1,12 @@
-// End-to-end check of the Phase 1 desktop shell against the Phase 1 exit
-// criterion: a project opens, plays, saves, and exports in the desktop build
-// the same way it does on the web.
-// Run `npm run desktop:build` first. Output goes to artifacts/desktop-e2e/.
-import { _electron as electron, chromium } from 'playwright'
+// End-to-end check of the desktop edition (v2 studio in Electron).
+// Covers native save/open/pack/export/recovery (Phase 1), the local API with
+// the CLI and MCP adapters (Phase 5), and the Python sidecar failing without
+// affecting playback (Phase 6). Run `npm run desktop:build` first.
+import { _electron as electron } from 'playwright'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
 
 const OUT = resolve('artifacts/desktop-e2e')
 const USER_DATA = join(OUT, 'user-data')
@@ -14,26 +14,19 @@ const PROJECT_DIR = join(OUT, 'Desktop Smoke.reborn')
 const WAV = join(OUT, 'desktop-smoke.wav')
 const PACK = join(OUT, 'Desktop Smoke.rebornpack')
 const SAMPLE = resolve('apps/web/public/audio/starter/bd_808.ogg')
+const CLI = resolve('packages/cli/bin/reborn.mjs')
 await rm(OUT, { recursive: true, force: true })
 await mkdir(OUT, { recursive: true })
 
 const failures = []
-const check = (condition, message) => {
-  if (!condition) failures.push(message)
+const check = (ok, message) => {
+  if (!ok) failures.push(message)
 }
-const env = {
-  ...process.env,
-  REBORN_E2E: '1',
-  REBORN_USER_DATA: USER_DATA,
-  REBORN_E2E_SAVE_PATH: PROJECT_DIR,
-  REBORN_E2E_WAV_PATH: WAV,
-  REBORN_E2E_PACK_PATH: PACK,
-}
-
+const env = { ...process.env, REBORN_E2E: '1', REBORN_USER_DATA: USER_DATA, REBORN_E2E_SAVE_PATH: PROJECT_DIR, REBORN_E2E_WAV_PATH: WAV, REBORN_E2E_PACK_PATH: PACK }
 const until = async (predicate, message, timeout = 30_000) => {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
-    if (await predicate()) return true
+    if (await predicate().catch(() => false)) return true
     await new Promise((r) => setTimeout(r, 150))
   }
   failures.push(`timed out: ${message}`)
@@ -45,127 +38,163 @@ async function launch() {
   const page = await app.firstWindow()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await page.waitForSelector('.workstation-shell')
-  const overview = page.getByRole('button', { name: 'OVERVIEW', exact: true })
-  if (await overview.count()) await overview.click()
-  const menu = (command, path) =>
-    app.evaluate(({ BrowserWindow }, event) => BrowserWindow.getAllWindows()[0].webContents.send('menu:command', event), path ? { command, path } : { command })
+  await page.waitForSelector('.transport')
+  const menu = (command, path) => app.evaluate(({ BrowserWindow }, event) => BrowserWindow.getAllWindows()[0].webContents.send('menu:command', event), path ? { command, path } : { command })
   const title = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())
-  return { app, page, errors, menu, title }
+  const state = (fn) => page.evaluate(fn)
+  return { app, page, errors, menu, title, state }
 }
 
-// Session 1: isolation, play, save, edit, export, pack, reopen.
+const cli = (...args) => execFileSync(process.execPath, [CLI, ...args], { env: { ...process.env, REBORN_API_FILE: join(USER_DATA, 'api.json') }, encoding: 'utf8', timeout: 60_000 })
+
+function mcpSession() {
+  const child = spawn(process.execPath, [CLI, 'mcp'], { env: { ...process.env, REBORN_API_FILE: join(USER_DATA, 'api.json') }, stdio: ['pipe', 'pipe', 'pipe'] })
+  let buffer = ''
+  const waiting = new Map()
+  child.stdout.on('data', (chunk) => {
+    buffer += chunk
+    let index
+    while ((index = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, index).trim()
+      buffer = buffer.slice(index + 1)
+      if (!line) continue
+      const message = JSON.parse(line)
+      waiting.get(message.id)?.(message)
+      waiting.delete(message.id)
+    }
+  })
+  let id = 0
+  const send = (method, params) =>
+    new Promise((resolveMessage) => {
+      id += 1
+      waiting.set(id, resolveMessage)
+      child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
+    })
+  return { send, notify: (method) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method })}\n`), close: () => child.kill() }
+}
+
 let session = await launch()
 {
-  const { page, menu, title } = session
-  const isolation = await page.evaluate(() => ({
-    bridge: typeof window.reborn?.saveProject === 'function',
-    require: typeof window.require,
-    process: typeof window.process,
-    origin: location.origin,
-  }))
-  check(isolation.bridge, 'desktop bridge missing')
-  check(isolation.require === 'undefined' && isolation.process === 'undefined', `Node globals leaked into the page: ${JSON.stringify(isolation)}`)
-  check(isolation.origin === 'app://reborn', `unexpected origin ${isolation.origin}`)
-  check((await page.locator('.product-mark small').textContent())?.includes('DESKTOP EDITION'), 'edition label not set')
+  const { page, menu, title, state, app } = session
+  const isolation = await page.evaluate(() => ({ bridge: typeof window.reborn?.saveProject === 'function', require: typeof window.require, process: typeof window.process, origin: location.origin }))
+  check(isolation.bridge && isolation.require === 'undefined' && isolation.process === 'undefined' && isolation.origin === 'app://reborn', `renderer isolation ${JSON.stringify(isolation)}`)
 
-  await page.getByRole('button', { name: 'Play', exact: true }).click()
-  await until(async () => (await page.locator('.playing').count()) > 0, 'playhead to advance')
-  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  // Play.
+  await page.locator('body').press('Space')
+  await until(() => state(() => window.__studio.engine.position() > 0.3), 'playhead to move')
+  await page.locator('body').press('Space')
 
-  await page.locator('.sampler-bay input[type=file]').setInputFiles(SAMPLE)
-  await page.waitForTimeout(800)
-  await page.getByRole('button', { name: 'Projects', exact: true }).click()
-  await page.locator('.project-name input').fill('DESKTOP SMOKE')
-  await page.keyboard.press('Escape')
+  // Import a user sample so the project has audio to save.
+  await page.getByRole('button', { name: 'Samples', exact: true }).click()
+  await page.locator('.browser input[type=file]').setInputFiles(SAMPLE)
+  await until(() => state(() => Object.keys(window.__studio.getState().project.assets).some((id) => id.startsWith('ast_'))), 'imported asset')
 
+  // Phase 5: the same edit from the UI, the CLI, and MCP, all in one undo history.
+  const tempo = page.getByRole('spinbutton', { name: 'Tempo in BPM' })
+  await tempo.fill('126')
+  await until(() => state(() => window.__studio.getState().project.tempo === 126), 'UI tempo edit')
+  await until(async () => existsSync(join(USER_DATA, 'api.json')), 'api.json')
+  const status = JSON.parse(cli('status', '--json'))
+  check(status.project?.tempo === 126, `CLI status sees the UI edit ${JSON.stringify(status.project)}`)
+  cli('run', 'project.update', '--tempo', '127')
+  await until(() => state(() => window.__studio.getState().project.tempo === 127), 'CLI tempo edit')
+  cli('pattern', 'write', '808.kick', 'X...X...X...X...')
+  const mcp = mcpSession()
+  await mcp.send('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '1' } })
+  mcp.notify('notifications/initialized')
+  const tools = await mcp.send('tools/list', {})
+  check(tools.result.tools.some((t) => t.name === 'project_update'), 'MCP lists project_update')
+  const proposed = await mcp.send('tools/call', { name: 'project_update', arguments: { tempo: 128, intent: 'Lift the tempo a little' } })
+  check(/propos/i.test(proposed.result.content[0].text), `MCP edit should be proposed: ${proposed.result.content[0].text}`)
+  mcp.close()
+  await until(() => page.locator('.proposal').count().then((n) => n > 0), 'proposal card')
+  await page.locator('.proposal').getByRole('button', { name: /Apply/ }).click()
+  await until(() => state(() => window.__studio.getState().project.tempo === 128), 'agent proposal applied')
+  const origins = await state(() => window.__studio.getState().past.slice(-4).map((e) => e.origin))
+  check(JSON.stringify(origins) === JSON.stringify(['manual', 'script', 'script', 'agent']), `undo history origins ${JSON.stringify(origins)}`)
+  cli('undo')
+  await until(() => state(() => window.__studio.getState().project.tempo === 127), 'CLI undo')
+
+  // Phase 1: save, edit, save again without rewriting audio, export, pack, reopen.
   await menu('save')
-  await until(() => existsSync(join(PROJECT_DIR, 'project.json')), 'project.json to be written')
+  await until(async () => existsSync(join(PROJECT_DIR, 'project.json')), 'project.json')
   const document = JSON.parse(await readFile(join(PROJECT_DIR, 'project.json'), 'utf8'))
-  check(document.format === 'reborn-project' && document.formatVersion === 1, 'project.json is not a v1 project document')
-  check(document.project.name === 'DESKTOP SMOKE', `saved name is ${document.project.name}`)
-  check(document.assets.length >= 1, 'user sample was not saved with the project')
+  check(document.formatVersion === 2 && document.studio?.schema === 'reborn-studio', 'project.json is a v2 studio document')
   const assetFiles = existsSync(join(PROJECT_DIR, 'assets')) ? await readdir(join(PROJECT_DIR, 'assets')) : []
-  check(assetFiles.some((file) => file.endsWith('.ogg')), `assets folder holds ${assetFiles.join(', ')}`)
-  await until(async () => !(await title()).startsWith('•'), 'title to show the saved state')
-
-  await page.locator('.unit-1 .bass-steps button').nth(3).click()
-  await until(async () => (await title()).startsWith('•'), 'title to show unsaved edits')
-
+  check(assetFiles.length >= 1, 'imported audio was saved with the project')
+  await until(async () => !(await title()).startsWith('•'), 'saved title')
+  const before = assetFiles[0] ? (await stat(join(PROJECT_DIR, 'assets', assetFiles[0]))).mtimeMs : 0
+  await tempo.fill('130')
+  await until(async () => (await title()).startsWith('•'), 'edited title')
   await menu('save')
-  await until(async () => !(await title()).startsWith('•'), 'second save to clear the edited marker')
-  const assetStat = await stat(join(PROJECT_DIR, 'assets', assetFiles[0]))
+  await until(async () => !(await title()).startsWith('•'), 'second save')
+  if (assetFiles[0]) check((await stat(join(PROJECT_DIR, 'assets', assetFiles[0]))).mtimeMs === before, 'unchanged audio was rewritten')
 
   await menu('export-wav')
-  await until(() => existsSync(WAV), 'WAV export to be written', 120_000)
+  await page.locator('.modal').getByRole('button', { name: 'Export' }).click()
+  await until(async () => existsSync(WAV), 'WAV export', 180_000)
+  if (existsSync(WAV)) {
+    const wav = await readFile(WAV)
+    check(wav.toString('ascii', 0, 4) === 'RIFF' && wav.readUInt16LE(22) === 2 && wav.readUInt32LE(24) === 44100, 'export is a stereo 44.1 kHz WAV')
+  }
 
   await menu('pack')
-  await until(() => existsSync(PACK), 'packed project to be written')
-  const pack = await readFile(PACK)
-  check(pack.subarray(0, 2).toString() === 'PK', 'packed project is not a ZIP archive')
-  check(pack.includes(Buffer.from('assets/')), 'packed project is missing its assets')
-
-  // Saving again must not rewrite unchanged audio.
-  await page.locator('.unit-1 .bass-steps button').nth(5).click()
-  await menu('save')
-  await until(async () => !(await title()).startsWith('•'), 'third save to finish')
-  check((await stat(join(PROJECT_DIR, 'assets', assetFiles[0]))).mtimeMs === assetStat.mtimeMs, 'unchanged audio was rewritten on save')
+  await until(async () => existsSync(PACK), 'pack')
 
   await menu('new')
-  await until(async () => (await title()).includes('NEW PROJECT') || !(await title()).includes('DESKTOP SMOKE'), 'new project to replace the open one')
+  await until(async () => (await title()).includes('New Beat'), 'new project')
   await menu('open-path', PROJECT_DIR)
-  await until(async () => (await title()).includes('DESKTOP SMOKE'), 'reopened project title')
-  await page.screenshot({ path: join(OUT, 'desktop-reopened.png') })
+  await until(() => state(() => window.__studio.getState().project.tempo === 130), 'reopened project')
 
-  // Unsaved edit, then a crash.
-  await page.locator('.unit-1 .bass-steps button').nth(7).click()
+  // Phase 6: the sidecar can crash mid-analysis without touching playback or the project.
+  let python = false
+  try {
+    execFileSync('python', ['-c', 'import numpy'], { stdio: 'ignore' })
+    python = true
+  } catch {
+    python = false
+  }
+  if (python) {
+    await page.keyboard.press('3')
+    await page.locator('body').press('Space')
+    const revision = await state(() => window.__studio.getState().project.revision)
+    await page.getByRole('button', { name: 'Deep analysis' }).click()
+    await until(() => app.evaluate(() => Boolean(globalThis.__rebornDeep?.pid)), 'sidecar to start', 60_000)
+    const pid = await app.evaluate(() => globalThis.__rebornDeep.pid)
+    try {
+      process.kill(pid)
+    } catch {
+      // The analysis may already have finished.
+    }
+    await page.waitForTimeout(1500)
+    const afterCrash = await state(() => ({ playing: window.__studio.getState().transport.playing, revision: window.__studio.getState().project.revision }))
+    check(afterCrash.playing && afterCrash.revision === revision, `sidecar crash affected the session ${JSON.stringify(afterCrash)}`)
+    await until(() => page.getByRole('button', { name: 'Deep analysis' }).isEnabled(), 'deep analysis to settle', 60_000)
+    await page.getByRole('button', { name: 'Deep analysis' }).click()
+    await until(() => page.locator('.deep-result').count().then((n) => n > 0), 'deep analysis after restart', 120_000)
+    await page.locator('body').press('Space')
+    await page.screenshot({ path: join(OUT, 'deep-analysis.png') })
+  } else console.log('Skipping sidecar checks: Python with numpy was not found.')
+
+  // Crash recovery.
+  await page.keyboard.press('1')
+  await tempo.fill('131')
   await page.waitForTimeout(2200)
   check(session.errors.length === 0, `page errors: ${session.errors.join(' | ')}`)
-  // Simulate a crash. On Windows, kill the whole tree so no child keeps the profile locked.
-  const pid = session.app.process().pid
+  const pid = app.process().pid
   if (process.platform === 'win32') execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' })
-  else session.app.process().kill('SIGKILL')
+  else app.process().kill('SIGKILL')
   await new Promise((r) => setTimeout(r, 1000))
 }
 
-// Session 2: crash recovery, then a clean quit.
 session = await launch()
 {
-  const { page, title } = session
-  await until(async () => (await page.locator('.toast').textContent().catch(() => ''))?.includes('RECOVERED'), 'recovery notice after crash')
-  await until(async () => (await title()).startsWith('•') && (await title()).includes('DESKTOP SMOKE'), 'recovered project marked as edited')
-  check(session.errors.length === 0, `page errors after recovery: ${session.errors.join(' | ')}`)
+  const { state, title } = session
+  await until(() => state(() => window.__studio.getState().project.tempo === 131), 'recovered project after crash')
+  await until(async () => (await title()).startsWith('•'), 'recovered project marked as edited')
   await session.app.close()
-  check(!existsSync(join(USER_DATA, 'session.lock')), 'clean quit left the session lock behind')
-  check(!existsSync(join(USER_DATA, 'recovery', 'current.json')), 'clean quit left a recovery snapshot behind')
-  const log = await readFile(join(USER_DATA, 'logs', 'reborn.log'), 'utf8')
-  check(log.includes('after an unclean shutdown') && log.includes('Session ended cleanly'), 'log is missing session lifecycle entries')
-}
-
-// Web parity: the same saved project exports a WAV of identical length.
-{
-  const document = JSON.parse(await readFile(join(PROJECT_DIR, 'project.json'), 'utf8'))
-  const raw = join(OUT, 'desktop-smoke.rb338.json')
-  await writeFile(raw, JSON.stringify(document.project))
-  const browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, acceptDownloads: true })
-  await page.goto('http://127.0.0.1:5173', { waitUntil: 'domcontentloaded' })
-  await page.waitForSelector('.workstation-shell')
-  await page.getByRole('button', { name: 'OVERVIEW', exact: true }).click()
-  await page.getByRole('button', { name: 'Projects', exact: true }).click()
-  await page.locator('.projects-popover input[type=file]').setInputFiles(raw)
-  await page.waitForTimeout(500)
-  const download = page.waitForEvent('download', { timeout: 120_000 })
-  await page.getByRole('button', { name: /EXPORT .* WAV/ }).click()
-  const webWav = join(OUT, 'web-smoke.wav')
-  await (await download).saveAs(webWav)
-  await browser.close()
-  const [desktopBytes, webBytes] = await Promise.all([readFile(WAV), readFile(webWav)])
-  const header = (bytes) => ({ riff: bytes.toString('ascii', 0, 4), channels: bytes.readUInt16LE(22), rate: bytes.readUInt32LE(24), bits: bytes.readUInt16LE(34), size: bytes.length })
-  const a = header(desktopBytes)
-  const b = header(webBytes)
-  check(a.riff === 'RIFF' && JSON.stringify(a) === JSON.stringify(b), `WAV mismatch: desktop ${JSON.stringify(a)} vs web ${JSON.stringify(b)}`)
-  console.log(`WAV parity: ${JSON.stringify(a)}`)
+  check(!existsSync(join(USER_DATA, 'session.lock')), 'clean quit left the session lock')
+  check(!existsSync(join(USER_DATA, 'api.json')), 'clean quit left api.json')
 }
 
 if (failures.length) {

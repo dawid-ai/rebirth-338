@@ -64,7 +64,7 @@ export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled'
 
 export interface JobUpdate {
   id: string
-  kind: 'pack'
+  kind: 'pack' | 'analysis'
   status: JobStatus
   completed: number
   total: number
@@ -158,6 +158,12 @@ export interface DesktopBridge {
   emitApiEvent(event: ApiEvent): void
   /** Number of local API clients seen recently, for the status bar. */
   apiClients(): Promise<number>
+  /** Deep analysis through the optional Python sidecar. Progress arrives as `analysis` job updates. */
+  deepAnalyze(request: { wav: ArrayBuffer; sections: { id: string; start: number; end: number }[] }): Promise<unknown>
+  /** Asks for a reference file, then compares the render against it. Null when cancelled. */
+  deepCompare(request: { wav: ArrayBuffer }): Promise<unknown | null>
+  deepCancel(): void
+  deepStatus(): Promise<{ status: string; backend: string | null; python: string | null; message: string | null }>
 }
 
 /** IPC channel names. Kept in one place so main and preload cannot drift. */
@@ -183,4 +189,8 @@ export const IPC = {
   apiResponse: 'api:response',
   apiClients: 'api:clients',
   apiEvent: 'api:event',
+  deepAnalyze: 'deep:analyze',
+  deepCompare: 'deep:compare',
+  deepCancel: 'deep:cancel',
+  deepStatus: 'deep:status',
 } as const

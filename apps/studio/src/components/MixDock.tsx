@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { BAND_NAMES } from '@reborn/analysis'
 import { studio } from '@reborn/studio-core'
 import { runAnalysis, useAnalysis } from '../audio/analysis'
+import { runDeep, useDeep } from '../audio/deep'
+import { desktop } from '../platform/desktop'
 import { dispatch, select, toast, useStudio } from '../state/store'
 
 const BAND_LABELS: Record<string, string> = { sub: 'Sub', bass: 'Bass', lowMid: 'Low-mid', mid: 'Mid', harsh: 'Harsh', air: 'Air' }
@@ -19,6 +21,8 @@ export function MixDock() {
   const [busy, setBusy] = useState(false)
   const stale = report && report.revision !== project.revision
   const traces = project.returns.map((ret) => studio.traceReturn(project, ret.id))
+  const deep = useDeep((d) => d.result)
+  const deepRunning = useDeep((d) => d.running)
 
   return (
     <div className="mix-dock">
@@ -49,7 +53,41 @@ export function MixDock() {
             </span>
           )}
           {!report && <span className="muted">Renders the song offline and measures each section. Nothing changes in the project.</span>}
+          {desktop && (
+            <>
+              <button type="button" className="chip-btn" disabled={deepRunning} onClick={() => void runDeep('analyze')} title="Measure with the Python analysis sidecar (Ismail bridge)">
+                Deep analysis
+              </button>
+              <button type="button" className="chip-btn" disabled={deepRunning} onClick={() => void runDeep('compare')} title="Compare loudness and tonal balance with a reference WAV">
+                Compare with reference…
+              </button>
+            </>
+          )}
         </div>
+        {deep && (
+          <div className={`deep-result${deep.revision !== project.revision ? ' is-stale' : ''}`}>
+            <strong>{deep.kind === 'compare' ? 'Reference comparison' : 'Deep analysis'}</strong>
+            <span className="muted">via {deep.backend} sidecar</span>
+            <span className="num">
+              {Object.entries(deep.summary)
+                .filter(([, v]) => v !== null)
+                .map(([k, v]) => `${k} ${v}`)
+                .join(' · ')}
+            </span>
+            {deep.findings.length > 0 && (
+              <ul>
+                {deep.findings.slice(0, 6).map((f, i) => (
+                  <li key={i}>{f.message}</li>
+                ))}
+              </ul>
+            )}
+            {deep.sections.length > 0 && (
+              <span className="muted">
+                {deep.sections.map((s) => `${s.name} ${s.lufs ?? '—'} LUFS`).join(' · ')}
+              </span>
+            )}
+          </div>
+        )}
         {report && (
           <table className="an-table">
             <thead>
