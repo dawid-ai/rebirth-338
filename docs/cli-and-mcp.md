@@ -23,9 +23,11 @@ The command uses the app's own runtime, so you don't need Node.js. From a source
 | `reborn set acid-1.cutoff 62 --bar 9` | Writes an automation point at bar 9. Without `--bar`, sets the value now. |
 | `reborn run mixer.set --trackId 808 --volume -3` | Runs any registry command as one undoable edit. |
 | `reborn play`, `stop`, `seek 17`, `launch 2` | Controls the transport and scenes. Bars and scenes are 1-based. |
-| `reborn render --wait` | Renders the mix and prints the WAV path. Add `--stems` for one file per track. |
+| `reborn render --wait` | Renders the mix and prints the WAV path, with progress on stderr. Add `--stems` for one file per track. |
 | `reborn analyze --bars 1:16 --wait` | Prints loudness, peaks, band balance, and warnings. |
 | `reborn undo`, `redo`, `save` | Edits history and saves. |
+| `reborn open path/to/Beat.reborn` | Opens a project. Refuses if the open project has unsaved changes, unless you add `--discard-changes`. |
+| `reborn cancel <job>` | Cancels a render or analysis job. Pressing `Ctrl+C` during `--wait` also cancels it. |
 | `reborn watch` | Streams project, transport, job, and proposal events. |
 
 Add `--json` to any command for machine-readable output. Add `--read-only` to use the read token, so edits fail.

@@ -33,7 +33,11 @@ The dock always shows the editor for the current selection. The inspector on the
 
 - Double-click an empty lane to create a clip.
 - `Ctrl+D` duplicates a clip as a linked repeat. Editing one copy edits both; **Make unique** in the inspector separates them.
+- `Ctrl+E` splits the selected clip at the playhead. `Enter` plays from the start of the selected clip or section.
+- The dock sets each pattern's length, step size, and swing. **Song** swing follows the project; any other value overrides it for that pattern. **Quantize** pulls the pattern's microtiming 50% or 100% toward the grid.
 - Hold `Alt` while you turn a knob with a step selected to lock that value to the step.
+- With record armed and the transport running, every knob, slider, and macro move is written as automation.
+- The **Macros** group in the track inspector chooses which parameters each of the eight macros drives.
 - `Delete` clears the selected clip, step, slice marker, or section marker. Every edit is undoable with `Ctrl+Z`.
 
 ## Sample and chop
@@ -43,7 +47,9 @@ The dock always shows the editor for the current selection. The inspector on the
 3. Play slices from the pad grid with the mouse, the right-hand keys on your keyboard, or MIDI pads.
 4. With record armed and the transport running, your pad performance is written into the clip.
 
-Audio tracks hold whole recordings with non-destructive gain, offsets, and fades. Any track, group, return, or master range can be printed to a new sample with **Resample**.
+To borrow a break's feel, choose a pattern next to **Apply groove** in the chop editor and click it. RE:BORN measures how the sample's hits sit against the grid and moves the pattern's steps the same way.
+
+Audio tracks hold whole recordings with non-destructive gain, offsets, and fades. To print a track, group, or return, select it and click **Print bars … to audio** in the inspector; for the master, run **Print the master** from the palette. The print covers the loop range (or the whole song) and lands on a new audio track, at the same level, as one undo step.
 
 ## Mix and diagnose
 
@@ -76,8 +82,12 @@ Other agents and scripts can drive RE:BORN too. See [CLI and MCP](cli-and-mcp.md
 - `Ctrl+S` saves the project as a `.reborn` folder with its audio. Unchanged audio files are never rewritten.
 - **File** > **Pack Project** writes a single `.rebornpack` file to share.
 - RE:BORN 338 web projects (`.rb338.json`) open directly; the import report lists anything that changed.
-- **Export** renders the song, a section, or stems as 16- or 24-bit WAV, with an optional loudness target and a true-peak ceiling.
+- **Export** renders the song, a section, the loop, or stems as 16- or 24-bit WAV at 44.1 or 48 kHz. An optional loudness target (−16, −14, or −9 LUFS) applies one gain change; it never limits, so if the master ceiling would be crossed it stops there and tells you.
 - If the app closes unexpectedly, the next launch offers to recover your unsaved work.
+
+## Audio device
+
+With nothing selected, the inspector shows the project and the **Audio device** settings: the device sample rate and latency. If playback crackles on a busy project, choose **Medium** or **Safe** latency.
 
 ## Accessibility
 

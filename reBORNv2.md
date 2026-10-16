@@ -566,6 +566,8 @@ Open for later phases: installers, signing, and auto-update (Phase 7), a save pr
 
 Exit when the two bass machines, wave and drums can be fully edited without the legacy page.
 
+Status (2026-10-16): exit criterion met. `apps/studio` is the v2 shell: fixed transport, browser, workspace, inspector, and detail dock, with Acid Synth, Wave Synth, and both drum machines edited in the dock and inspector. The command palette (`Ctrl+K`), a searchable help and remappable shortcut map (`F1`), three density levels, and a high-contrast theme are in place. `scripts/studio-smoke.mjs` edits every device without the v1 page.
+
 ### Phase 3 — Tracks, patterns and arrangement
 
 - Introduce stable track, pattern and clip IDs.
@@ -576,6 +578,8 @@ Exit when the two bass machines, wave and drums can be fully edited without the 
 
 Exit when a complete imported demo can be rearranged without touching the legacy song chain.
 
+Status (2026-10-16): exit criterion met. Tracks, patterns, and clips have stable IDs; Arrange and Build views, sections, insert and delete time, linked clips with **Make unique**, clip split, automation lanes, and step locks all run through the command registry. `import-v1.ts` imports every v1 demo; `npm run audit:audio` confirms each imported demo stays within 0.2 LU and a tonal-balance change of 0.04 of its v1 render. The smoke test rearranges an imported demo.
+
 ### Phase 4 — Sampling, audio tracks and mixer
 
 - Build the media browser, waveform editor and pad workflow.
@@ -584,6 +588,8 @@ Exit when a complete imported demo can be rearranged without touching the legacy
 - Add stem/resample workflows and improved export.
 
 Exit when the north-star hip-hop workflow can be completed entirely in v2.
+
+Status (2026-10-16): exit criterion met. The media browser, chop editor (transient, equal, beat, and bar slicing with tempo and key detection), pads with note repeat and Sixteen Levels, groove extraction and quantize, audio tracks with non-destructive edits, explicit returns, groups, signal tracing, stems, resampling with provenance, and loudness-targeted export are in v2. The smoke test completes the north-star workflow: import a break, chop it, record pads, arrange, mix, and export.
 
 ### Phase 5 — Command surface and agents
 
@@ -595,6 +601,8 @@ Exit when the north-star hip-hop workflow can be completed entirely in v2.
 
 Exit when UI, CLI and MCP can perform the same edit and produce the same undo history.
 
+Status (2026-10-16): exit criterion met. The typed registry (`packages/studio-core/src/studio/commands.ts`) backs the UI, the local API, the `reborn` CLI, and the MCP server. Agent edits become proposals with preview and partial apply unless direct edits are on. Claude CLI, the Claude API, and OpenAI-compatible local servers are supported, with keys in the OS credential store. `scripts/desktop-smoke.mjs` makes the same edit from the UI, the CLI, and MCP and checks the shared undo history. Jobs report progress and cancel through `DELETE /v1/jobs/:id`.
+
 ### Phase 6 — Ismail and advanced analysis
 
 - Add supervised Python environment installation.
@@ -604,6 +612,8 @@ Exit when UI, CLI and MCP can perform the same edit and produce the same undo hi
 
 Exit when an analysis job can fail, cancel or restart without affecting transport, project integrity or manual editing.
 
+Status (2026-10-16): exit criterion met. `python/ismail-bridge` runs as a supervised sidecar that installs its own environment when `numpy` is missing, and handles analysis and reference comparison. The desktop smoke test kills the sidecar during playback and confirms playback, the project, and editing continue, then restarts it. Sound generation through Ismail and stem separation are not built: the Ismail code itself isn't in this repository, so only the adapter and the built-in backend exist.
+
 ### Phase 7 — Performance and release readiness
 
 - Complete Perform view and performance automation capture.
@@ -611,6 +621,16 @@ Exit when an analysis job can fail, cancel or restart without affecting transpor
 - Add signed installers, updates and GitHub Releases.
 - Run accessibility, migration, audio parity and recovery audits.
 - Produce onboarding projects and concise documentation.
+
+Status (2026-10-16): delivered.
+
+- Perform view with macros, crossfader, decks, and FX, and capture of any control move as automation while armed.
+- Lazy-loaded views (initial script 362 KB, down from 559 KB), cached waveform peaks, and a 300-bar stress project with no scheduler drift or heap growth.
+- Windows NSIS installer through electron-builder, signing when certificate secrets are set, `electron-updater` against GitHub Releases, and a tag-triggered release workflow that creates a draft release.
+- Audits: `npm run audit:a11y` (axe-core, no serious or critical violations), `npm run audit:audio` (golden renders for every device and effect, chunked and live parity, v1 migration, stress), and crash recovery in the desktop smoke test.
+- Starter templates (Boom bap, Acid house, Starter rack, Blank), MIDI learn with per-device profiles, and `docs/` with a user guide, a CLI and MCP guide, and a release guide.
+
+Open after v2.0 (from a spec-versus-code review on 2026-10-16): clip loop regions and launch settings, audio warp markers and gain envelopes, user-added return buses and ordered effect chains, a tempo map, persisted proposals and analysis references in the project folder, a curve editor in the dock, chop-editor zoom and marker snapping, track inputs with separate MIDI monitoring and recording, MIDI clock, context menus, resizable mixer strips, and a separate offline render worker.
 
 ## 14. Quality Gates
 
