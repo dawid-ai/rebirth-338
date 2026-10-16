@@ -17,9 +17,13 @@ import './audio/recorder'
 import { startApiHost } from './platform/apiHost'
 import { restoreSession, startAutosave } from './state/persistence'
 import App from './App'
+import { engine } from './audio/host'
+import { getState } from './state/store'
 
 async function boot() {
-  await restoreSession()
+  // End-to-end tests read state through this hook; it is only exposed on request.
+  if (location.search.includes('e2e')) Object.assign(window, { __studio: { engine, getState } })
+  if (!location.search.includes('fresh')) await restoreSession()
   startAutosave()
   startApiHost()
   createRoot(document.getElementById('root')!).render(

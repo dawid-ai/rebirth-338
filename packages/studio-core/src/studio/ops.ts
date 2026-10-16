@@ -385,8 +385,14 @@ export function traceTrack(project: StudioProject, trackId: string): TrackPath {
 export function traceReturn(project: StudioProject, returnId: string): ReturnTrace {
   const ret = project.returns.find((r) => r.id === returnId)
   if (!ret) throw new StudioError('not_found', `No return "${returnId}".`)
-  const audible = !ret.mute && !project.master.fxSafeBypass
-  const reason = project.master.fxSafeBypass ? 'FX Safe Bypass is on; returns are silent and send values are kept.' : ret.mute ? `${ret.name} is muted.` : `${ret.name} is live at ${ret.level.toFixed(1)} dB.`
+  const audible = !ret.mute && !project.master.fxSafeBypass && ret.level > -60
+  const reason = project.master.fxSafeBypass
+    ? 'FX Safe Bypass is on; returns are silent and send values are kept.'
+    : ret.mute
+      ? `${ret.name} is muted.`
+      : ret.level <= -60
+        ? `${ret.name}’s return fader is at −∞, so its sends are inaudible.`
+        : `${ret.name} is live at ${ret.level.toFixed(1)} dB.`
   const sources = project.tracks.map<TraceStep>((track) => {
     const send = track.mixer.sends[returnId] ?? { level: 0, tap: 'post' as const }
     const path = traceTrack(project, track.id)

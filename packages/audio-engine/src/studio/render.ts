@@ -1,3 +1,4 @@
+import { truePeak } from '@reborn/analysis'
 import { studio } from '@reborn/studio-core'
 import { StudioGraph } from './graph'
 import { type AssetBuffers, EventPlayer } from './play'
@@ -123,7 +124,16 @@ export async function renderStudio(project: StudioProject, buffers: AssetBuffers
   source.connect(graph.masterInput())
   source.start(0)
   const mastered = await context.startRendering()
-  return { channels: [mastered.getChannelData(0).slice(), mastered.getChannelData(1).slice()], sampleRate: rate, from, to, musicalSeconds }
+  const channels: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] = [mastered.getChannelData(0).slice(), mastered.getChannelData(1).slice()]
+  // The waveshaper ceiling limits sample peaks; inter-sample peaks can still
+  // overshoot, so trim to the true-peak ceiling the user set.
+  const measured = truePeak(channels, rate)
+  const ceiling = Math.min(0, project.master.ceiling)
+  if (measured > ceiling) {
+    const gain = 10 ** ((ceiling - measured - 0.05) / 20)
+    for (const channel of channels) for (let i = 0; i < channel.length; i += 1) channel[i] *= gain
+  }
+  return { channels, sampleRate: rate, from, to, musicalSeconds }
 }
 
 /** A copy of the project where only `trackId` (and the groups it feeds) is heard. */

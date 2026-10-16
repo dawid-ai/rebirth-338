@@ -118,8 +118,12 @@ export async function writeZip(output: string, sources: ZipSource[], options: { 
     await once(stream, 'finish')
     await rename(temporary, output)
   } catch (error) {
-    stream.destroy()
-    await rm(temporary, { force: true })
+    // Windows keeps the file locked until the stream has closed.
+    if (!stream.closed) {
+      stream.destroy()
+      await once(stream, 'close').catch(() => undefined)
+    }
+    await rm(temporary, { force: true, maxRetries: 5, retryDelay: 50 })
     throw error
   }
 }
