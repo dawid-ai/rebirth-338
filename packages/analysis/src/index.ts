@@ -1,6 +1,7 @@
 export * from './bands'
 export * from './dither'
 export * from './fft'
+export * from './groove'
 export * from './key'
 export * from './levels'
 export * from './loudness-target'

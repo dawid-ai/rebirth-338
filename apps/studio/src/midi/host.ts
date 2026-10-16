@@ -1,6 +1,7 @@
 import { studio } from '@reborn/studio-core'
 import { engine, togglePlay } from '../audio/host'
 import { dispatch, getState, selectedTrackId, setPrefs, setState, toast } from '../state/store'
+import { recordMacroMove, recordParamMove } from '../state/record'
 import { type MidiTarget, bindControl, describeControl, lookupControl, parseMidi } from './midi'
 
 // Connects MIDI inputs: learned controls drive parameters, macros, and the
@@ -83,12 +84,15 @@ function applyTarget(target: MidiTarget, kind: 'cc' | 'note', value: number, cal
     const track = s.project.tracks.find((t) => t.id === trackId)
     if (!track || !track.macros[target.index]) return
     dispatch({ type: 'macro.set', params: { trackId: track.id, index: target.index, value } }, { label: `${track.name} ${track.macros[target.index].name}`, key: `macro-${track.id}-${target.index}` })
+    recordMacroMove(track.id, target.index, value)
     return
   }
   const track = s.project.tracks.find((t) => t.id === target.trackId)
   const spec = track ? studio.findParamSpec(track, target.param) : undefined
   if (!track || !spec) return
-  dispatch({ type: 'parameter.set', params: { trackId: track.id, param: target.param, value: studio.denormalize(spec, value) } }, { label: target.label, key: `midi-${track.id}-${target.param}` })
+  const next = studio.denormalize(spec, value)
+  dispatch({ type: 'parameter.set', params: { trackId: track.id, param: target.param, value: next } }, { label: target.label, key: `midi-${track.id}-${target.param}` })
+  recordParamMove(track.id, target.param, next)
 }
 
 /** Turns learn mode on or off. */

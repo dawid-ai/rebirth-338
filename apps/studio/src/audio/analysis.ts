@@ -43,7 +43,7 @@ export function useAnalysis(): AnalysisReport | null {
 
 export const latestAnalysis = () => report
 
-export async function runAnalysis(range?: { from?: number; to?: number }, signal?: AbortSignal): Promise<AnalysisReport> {
+export async function runAnalysis(range?: { from?: number; to?: number }, signal?: AbortSignal, onProgress?: (completed: number, total: number) => void): Promise<AnalysisReport> {
   const project = getState().project
   const from = Math.max(0, range?.from ?? 0)
   const to = Math.min(project.length, range?.to ?? project.length)
@@ -56,7 +56,10 @@ export async function runAnalysis(range?: { from?: number; to?: number }, signal
       from,
       to,
       signal: controller.signal,
-      onProgress: (completed, total) => upsertJob({ id, label: 'Analyzing mix', completed, total, status: 'running', cancel: () => controller.abort() }),
+      onProgress: (completed, total) => {
+        upsertJob({ id, label: 'Analyzing mix', completed, total, status: 'running', cancel: () => controller.abort() })
+        onProgress?.(completed, total)
+      },
     })
     const barSeconds = studio.barSeconds(project)
     const sections = project.sections.filter((s) => s.start < to && s.start + s.length > from)

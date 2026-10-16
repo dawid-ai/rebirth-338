@@ -5,15 +5,12 @@ import { engine, usePlayhead } from '../audio/host'
 import { dispatch, getState, select, selectedTrackId, useStudio } from '../state/store'
 import { launchScene } from './Build'
 import { Knob } from './Controls'
+import { recordParamMove } from '../state/record'
 
 // Perform view: big targets, nothing that edits patterns. With record armed
 // and the transport running, every move here is written as automation.
 
-function capture(trackId: string, param: string, value: number) {
-  const s = getState()
-  if (!s.recording || !s.transport.playing) return
-  dispatch({ type: 'automation.write', params: { trackId, param, points: [{ bar: Math.round(engine.position() * 16) / 16, value }] } }, { label: 'Record performance', key: `perf-${trackId}-${param}` })
-}
+const capture = recordParamMove
 
 function setParam(trackId: string, param: string, value: number, label: string) {
   dispatch({ type: 'parameter.set', params: { trackId, param, value } }, { label, key: `perf-set-${trackId}-${param}` })

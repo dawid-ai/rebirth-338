@@ -217,6 +217,31 @@ describe('runtime', () => {
     expect((await cli(['save'])).stdout).toMatch(/Saved.\n.*Test Beat.reborn/)
   })
 
+  it('cancels a job and reports finished ones', async () => {
+    const started = await cli(['render'])
+    const id = /job_\d+/.exec(started.stdout)![0]
+    expect((await cli(['cancel', id])).stdout).toBe(`Cancelled ${id}.
+`)
+    expect(server.requests.at(-1)).toMatchObject({ method: 'DELETE', path: `/v1/jobs/${id}` })
+    const done = JSON.parse((await cli(['render', '--wait', '--json'])).stdout) as { id: string }
+    expect((await cli(['cancel', done.id])).stdout).toBe(`Job ${done.id} already done.
+`)
+  })
+
+  it('reports render progress on stderr while waiting', async () => {
+    const result = await cli(['render', '--wait'])
+    expect(result.stderr).toMatch(/Mix render: \d+%/)
+  })
+
+  it('opens a project by absolute path and refuses to drop unsaved work', async () => {
+    const opened = await cli(['open', 'Some Beat.reborn'])
+    expect(opened.code).toBe(EXIT.ok)
+    expect((lastBody('/v1/runtime') as { params: { path: string } }).params.path).toMatch(/Some Beat\.reborn$/)
+    await cli(['run', 'project.update', '--tempo', '99'])
+    expect((await cli(['open', 'Other.reborn'])).code).not.toBe(EXIT.ok)
+    expect((await cli(['open', 'Other.reborn', '--discard-changes'])).code).toBe(EXIT.ok)
+  })
+
   it('starts a render and returns without --wait', async () => {
     const result = await cli(['render'])
     expect(result.stdout).toMatch(/Mix render started as job job_\d+/)

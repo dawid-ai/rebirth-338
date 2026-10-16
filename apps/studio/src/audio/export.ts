@@ -10,6 +10,8 @@ export interface ExportOptions {
   range: 'song' | 'section' | 'loop'
   /** Integrated loudness target for the mix in LUFS, or null to keep the mix level. */
   loudness?: number | null
+  /** Output sample rate; defaults to the project rate. */
+  sampleRate?: number
 }
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'export'
@@ -46,7 +48,7 @@ export async function exportAudio(options: ExportOptions): Promise<void> {
   try {
     const progress = (completed: number, total: number) => upsertJob({ id, label, completed, total, status: 'running', cancel: () => controller.abort() })
     if (options.kind === 'mix') {
-      const result = await renderStudio(project, engine.assetBuffers(), { from, to, signal: controller.signal, onProgress: progress })
+      const result = await renderStudio(project, engine.assetBuffers(), { from, to, sampleRate: options.sampleRate, signal: controller.signal, onProgress: progress })
       let channels: Float32Array[] = result.channels
       let note = ''
       if (options.loudness != null) {
@@ -62,7 +64,7 @@ export async function exportAudio(options: ExportOptions): Promise<void> {
       upsertJob({ id, label, completed: 1, total: 1, status: 'done' })
       if (target) toast(`Exported ${options.bitDepth}-bit WAV${note}.`, 'success')
     } else {
-      const stems = await renderStems(project, engine.assetBuffers(), { from, to, signal: controller.signal, onProgress: progress })
+      const stems = await renderStems(project, engine.assetBuffers(), { from, to, sampleRate: options.sampleRate, signal: controller.signal, onProgress: progress })
       for (const stem of stems) await save(encodeWav(stem.render.channels, stem.render.sampleRate, options.bitDepth), `${slug(project.name)}-${slug(stem.name)}.wav`)
       upsertJob({ id, label, completed: 1, total: 1, status: 'done' })
       toast(`Exported ${stems.length} stems`, 'success')

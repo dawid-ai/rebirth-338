@@ -10,6 +10,7 @@ import { newProject, openProject, saveProject } from '../state/persistence'
 import { type View, dispatch, getState, redo, select, selectedTrackId, setPrefs, setState, setView, undo } from '../state/store'
 import { desktop } from '../platform/desktop'
 import { toggleMidiLearn } from '../midi/host'
+import { playFromSelection, splitSelectedClip } from '../state/clipActions'
 import { addTrack } from './AddTrackMenu'
 
 interface Action {
@@ -25,6 +26,7 @@ function actions(): Action[] {
     ...(['arrange', 'build', 'mix', 'perform'] as View[]).map((view, i) => ({ id: `view-${view}`, label: `Go to ${view[0].toUpperCase()}${view.slice(1)}`, hint: String(i + 1), run: () => setView(view) })),
     { id: 'play', label: s.transport.playing ? 'Pause' : 'Play', hint: 'Space', run: () => void togglePlay() },
     { id: 'stop', label: 'Stop and return to start', run: () => engine.stop() },
+    { id: 'play-selection', label: 'Play from the selected clip or section', hint: 'Enter', run: playFromSelection },
     { id: 'record', label: s.recording ? 'Disarm recording' : 'Arm recording', hint: 'R', run: () => setState({ recording: !s.recording }) },
     { id: 'undo', label: 'Undo', hint: 'Ctrl Z', run: undo },
     { id: 'redo', label: 'Redo', hint: 'Ctrl Shift Z', run: redo },
@@ -53,6 +55,7 @@ function actions(): Action[] {
   if (sel.kind === 'return') list.push({ id: 'print-return', label: 'Print the selected return to a new audio track', run: () => void resample({ kind: 'return', returnId: sel.returnId }) })
   if (sel.kind === 'clip') {
     list.push({ id: 'unique', label: 'Make selected clip unique', run: () => dispatch({ type: 'clip.makeUnique', params: { clipId: sel.clipId } }, { label: 'Make unique' }) })
+    list.push({ id: 'split', label: 'Split selected clip at the playhead', hint: 'Ctrl E', run: splitSelectedClip })
     list.push({ id: 'dup', label: 'Duplicate selected clip', hint: 'Ctrl D', run: () => dispatch({ type: 'clip.duplicate', params: { clipId: sel.clipId } }, { label: 'Duplicate clip' }) })
   }
   return list

@@ -3,9 +3,9 @@ import { encodeWav, renderStems, renderStudio } from '@reborn/audio-engine/studi
 import { loadAgentSettings } from '../agent/agent'
 import { runAnalysis, summarizeReport } from '../audio/analysis'
 import { engine } from '../audio/host'
-import { saveProject } from '../state/persistence'
+import { openProject, saveProject } from '../state/persistence'
 import { addProposal, onResolved } from '../state/proposals'
-import { dispatch, getState, redo, subscribe, undo } from '../state/store'
+import { dispatch, getState, isEdited, redo, subscribe, undo } from '../state/store'
 import { launchScene } from '../components/Build'
 import { desktop } from './desktop'
 
@@ -17,6 +17,28 @@ import { desktop } from './desktop'
 type Reply = { status: number; body: unknown }
 
 const error = (status: number, code: string, message: string): Reply => ({ status, body: { error: { code, message } } })
+
+// Jobs the server started, so it can cancel them and see their progress.
+const jobs = new Map<string, AbortController>()
+
+function jobControl(params: Record<string, unknown>, kind: string): { signal: AbortSignal; onProgress: (completed: number, total: number) => void; done: () => void } {
+  const jobId = typeof params.jobId === 'string' ? params.jobId : null
+  const controller = new AbortController()
+  if (jobId) jobs.set(jobId, controller)
+  let last = 0
+  return {
+    signal: controller.signal,
+    onProgress: (completed, total) => {
+      const now = Date.now()
+      if (!jobId || !desktop || (now - last < 250 && completed < total)) return
+      last = now
+      desktop.emitApiEvent({ type: 'job', job: { id: jobId, kind, status: 'running', completed, total } })
+    },
+    done: () => {
+      if (jobId) jobs.delete(jobId)
+    },
+  }
+}
 
 async function handle(request: ApiRpcRequest): Promise<Reply> {
   const s = getState()
@@ -95,17 +117,46 @@ async function handle(request: ApiRpcRequest): Promise<Reply> {
     case 'analysis.run': {
       const from = typeof params.from === 'number' ? params.from - 1 : undefined
       const to = typeof params.to === 'number' ? params.to : undefined
-      const report = await runAnalysis({ from, to })
-      return { status: 200, body: { result: summarizeReport(report) } }
+      const job = jobControl(params, 'analysis')
+      try {
+        const report = await runAnalysis({ from, to }, job.signal, job.onProgress)
+        return { status: 200, body: { result: summarizeReport(report) } }
+      } finally {
+        job.done()
+      }
     }
     case 'render.mix': {
-      const rendered = await renderStudio(s.project, engine.assetBuffers())
-      const wav = encodeWav(rendered.channels, rendered.sampleRate, params.bitDepth === 24 ? 24 : 16)
-      return { status: 200, body: { result: { files: [{ name: `${slug(s.project.name)}.wav`, data: wav }] } } }
+      const job = jobControl(params, 'render')
+      try {
+        const rendered = await renderStudio(s.project, engine.assetBuffers(), { signal: job.signal, onProgress: job.onProgress })
+        const wav = encodeWav(rendered.channels, rendered.sampleRate, params.bitDepth === 24 ? 24 : 16)
+        return { status: 200, body: { result: { files: [{ name: `${slug(s.project.name)}.wav`, data: wav }] } } }
+      } finally {
+        job.done()
+      }
     }
     case 'render.stems': {
-      const stems = await renderStems(s.project, engine.assetBuffers())
-      return { status: 200, body: { result: { files: stems.map((stem) => ({ name: `${slug(s.project.name)}-${slug(stem.name)}.wav`, data: encodeWav(stem.render.channels, stem.render.sampleRate, 24) })) } } }
+      const job = jobControl(params, 'render')
+      try {
+        const stems = await renderStems(s.project, engine.assetBuffers(), { signal: job.signal, onProgress: job.onProgress })
+        return { status: 200, body: { result: { files: stems.map((stem) => ({ name: `${slug(s.project.name)}-${slug(stem.name)}.wav`, data: encodeWav(stem.render.channels, stem.render.sampleRate, 24) })) } } }
+      } finally {
+        job.done()
+      }
+    }
+    case 'job.cancel': {
+      const controller = jobs.get(String(params.jobId))
+      controller?.abort()
+      return { status: 200, body: { result: { cancelled: Boolean(controller) } } }
+    }
+    case 'project.open': {
+      if (typeof params.path !== 'string' || !params.path) return error(400, 'invalid', 'project.open needs a path.')
+      // Never drop the user's unsaved work on a script's behalf.
+      if (isEdited(s) && params.discardChanges !== true) return error(409, 'conflict', 'The open project has unsaved changes. Save it first, or pass discardChanges: true to drop them.')
+      const before = s.project.id
+      await openProject(params.path)
+      const opened = getState()
+      return opened.project.id !== before || opened.document.path === params.path ? { status: 200, body: { result: { name: opened.project.name, path: opened.document.path, revision: opened.project.revision } } } : error(404, 'not_found', `Could not open ${params.path}.`)
     }
     case 'proposal.list':
       return { status: 200, body: { result: s.proposals.map((p) => ({ id: p.id, intent: p.intent, status: p.status, changes: p.changes.length, source: p.source })) } }
@@ -143,4 +194,11 @@ export function startApiHost(): void {
     bridge.emitApiEvent({ type: 'project', revision: s.project.revision, origin: entry?.origin ?? 'manual', label: entry?.label ?? '' })
   })
   onResolved((id, status) => bridge.emitApiEvent({ type: 'proposal', id, status }))
+  let lastPlaying = getState().transport.playing
+  subscribe(() => {
+    const { transport } = getState()
+    if (transport.playing === lastPlaying) return
+    lastPlaying = transport.playing
+    bridge.emitApiEvent({ type: 'transport', playing: transport.playing, bar: Math.floor(engine.position()) + 1 })
+  })
 }

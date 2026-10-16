@@ -2,6 +2,7 @@ import { Keyboard, Link2, Minus, Plus, Unlink } from 'lucide-react'
 import { type CSSProperties, useRef, useState } from 'react'
 import { studio } from '@reborn/studio-core'
 import { engine, usePlayhead } from '../audio/host'
+import { recordMacroMove } from '../state/record'
 import { modifiers } from '../state/modifiers'
 import { dispatch, getState, select, selectedTrackId, setPrefs, useStudio } from '../state/store'
 import { AudioClipEditor, ChopEditor, PadGrid } from './SampleEditors'
@@ -94,7 +95,36 @@ function LengthControl({ pattern }: { pattern: Pattern }) {
           </option>
         ))}
       </select>
+      <SwingControl pattern={pattern} />
+      <select value="" aria-label="Quantize" className="quantize" onChange={(event) => event.target.value && dispatch({ type: 'pattern.quantize', params: { patternId: pattern.id, strength: Number(event.target.value) } }, { label: `Quantize ${Math.round(Number(event.target.value) * 100)}%` })}>
+        <option value="">Quantize…</option>
+        <option value="0.5">50% toward grid</option>
+        <option value="1">100% (straight)</option>
+      </select>
     </div>
+  )
+}
+
+/** Per-pattern swing. "Song" inherits the project swing; any other value overrides it. */
+function SwingControl({ pattern }: { pattern: Pattern }) {
+  const songSwing = useStudio((s) => s.project.swing)
+  const options = [0, 0.08, 0.16, 0.25, 0.33, 0.5]
+  return (
+    <label className={`swing-ctl${pattern.swing !== null ? ' is-override' : ''}`} title={pattern.swing !== null ? 'This pattern’s swing overrides the song swing.' : 'This pattern follows the song swing.'}>
+      <span>Swing</span>
+      <select
+        value={pattern.swing === null ? 'song' : String(pattern.swing)}
+        aria-label="Pattern swing"
+        onChange={(event) => dispatch({ type: 'pattern.update', params: { patternId: pattern.id, swing: event.target.value === 'song' ? -1 : Number(event.target.value) } }, { label: 'Pattern swing' })}
+      >
+        <option value="song">Song ({Math.round(songSwing * 100)}%)</option>
+        {[...new Set([...options, ...(pattern.swing !== null ? [pattern.swing] : [])])].sort((a, b) => a - b).map((v) => (
+          <option key={v} value={String(v)}>
+            {Math.round(v * 100)}% (overrides song)
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -401,17 +431,6 @@ function MacroRow({ track }: { track: Track }) {
       {selection.kind === 'step' && <span className="lock-hint">Hold Alt while turning to lock a value to step {selection.index + 1}</span>}
     </div>
   )
-}
-
-/** While recording and playing, macro moves become arrangement automation. */
-function recordMacroMove(trackId: string, index: number, value: number) {
-  const s = getState()
-  if (!s.recording || !s.transport.playing) return
-  const track = s.project.tracks.find((t) => t.id === trackId)
-  const target = track?.macros[index]?.targets[0]
-  if (!target) return
-  const bar = Math.round(engine.position() * 16) / 16
-  dispatch({ type: 'automation.write', params: { trackId, param: target.param, points: [{ bar, value: target.min + (target.max - target.min) * value }] } }, { label: 'Record automation', key: `rec-${trackId}-${index}` })
 }
 
 export function Dock() {

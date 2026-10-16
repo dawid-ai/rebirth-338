@@ -35,6 +35,13 @@ interface DeckRuntime {
   rate: number
 }
 
+export interface DeviceOptions {
+  /** Device sample rate; null follows the project rate. */
+  sampleRate: number | null
+  /** A latency category, or a target latency in seconds (the Web Audio buffer size). */
+  latency: AudioContextLatencyCategory | number
+}
+
 export class StudioEngine {
   private context: AudioContext | null = null
   private graph: StudioGraph | null = null
@@ -55,6 +62,7 @@ export class StudioEngine {
   private readonly previewHats = new Map<string, GainNode[]>()
   private readonly previewPads = new Map<string, Map<number, Set<AudioBufferSourceNode>>>()
   private seekBar = 0
+  private device: DeviceOptions = { sampleRate: null, latency: 'interactive' }
 
   constructor(project: StudioProject) {
     this.project = project
@@ -66,7 +74,7 @@ export class StudioEngine {
     if (!this.context) {
       const Context = globalThis.AudioContext
       if (!Context) throw new Error('Web Audio is not available.')
-      this.context = new Context({ latencyHint: 'interactive', sampleRate: this.project.sampleRate })
+      this.context = new Context({ latencyHint: this.device.latency, sampleRate: this.device.sampleRate ?? this.project.sampleRate })
       this.graph = new StudioGraph(this.context, this.context.destination, this.project)
       this.player = new EventPlayer(this.graph, this.buffers)
     }
@@ -80,11 +88,37 @@ export class StudioEngine {
 
   dispose(): void {
     this.stop()
+    for (const runtime of this.decks.values()) {
+      try {
+        runtime.source?.stop()
+      } catch {
+        // Never started.
+      }
+    }
+    this.decks.clear()
+    this.previewHats.clear()
+    this.previewPads.clear()
     this.graph?.dispose()
     void this.context?.close()
     this.context = null
     this.graph = null
     this.player = null
+  }
+
+  /**
+   * Sets the audio device rate and latency. A running context is closed and
+   * rebuilt on next use; loaded audio stays loaded.
+   */
+  configureDevice(options: Partial<DeviceOptions>): void {
+    const next = { ...this.device, ...options }
+    if (next.sampleRate === this.device.sampleRate && next.latency === this.device.latency) return
+    this.device = next
+    if (this.context) this.dispose()
+  }
+
+  /** Output latency the device reports, in seconds. */
+  get latency(): number {
+    return this.context ? this.context.baseLatency + (this.context.outputLatency || 0) : 0
   }
 
   setProject(project: StudioProject): void {

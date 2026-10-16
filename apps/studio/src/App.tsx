@@ -14,6 +14,7 @@ import { desktop } from './platform/desktop'
 import { clearImportNotice, importNotice, importProjectFile, newProject, onImportNotice, openProject, saveProject } from './state/persistence'
 import { type View, dispatch, getState, redo, select, selectedTrackId, setPrefs, setState, setView, subscribe, toast, undo, useStudio } from './state/store'
 import { installLearnPicker, startMidi } from './midi/host'
+import { playFromSelection, splitSelectedClip } from './state/clipActions'
 import { MidiLearnBar } from './components/MidiLearnBar'
 
 // Views and panels that are not needed for the first paint load on demand.
@@ -288,7 +289,9 @@ export default function App() {
         if (copy) select({ kind: 'clip', clipId: copy })
         return
       }
+      if (is('split')) return void (event.preventDefault(), splitSelectedClip())
       if (event.ctrlKey || event.metaKey) return
+      if (is('play.selection')) return void (event.preventDefault(), playFromSelection())
       if (is('play')) {
         event.preventDefault()
         void togglePlay()

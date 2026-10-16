@@ -99,9 +99,12 @@ export function MixDock() {
                   </th>
                 ))}
                 <th scope="col">LUFS</th>
+                <th scope="col" title="Integrated RMS level">RMS</th>
                 <th scope="col">Peak</th>
                 <th scope="col">Crest</th>
                 <th scope="col">Corr</th>
+                <th scope="col" title="Left/right level difference">Bal</th>
+                <th scope="col" title="Largest DC offset of either channel">DC</th>
                 <th scope="col">Flags</th>
               </tr>
             </thead>
@@ -115,9 +118,14 @@ export function MixDock() {
                     </td>
                   ))}
                   <td className="num">{Number.isFinite(section.loudnessLufs) ? section.loudnessLufs.toFixed(1) : '—'}</td>
+                  <td className="num">{Number.isFinite(section.rmsDb) ? section.rmsDb.toFixed(1) : '—'}</td>
                   <td className="num">{Number.isFinite(section.truePeakDb) ? section.truePeakDb.toFixed(1) : '—'}</td>
                   <td className="num">{Number.isFinite(section.crestDb) ? section.crestDb.toFixed(1) : '—'}</td>
                   <td className="num">{section.correlation.toFixed(2)}</td>
+                  <td className="num" title={section.balanceDb > 0 ? 'Left is louder' : section.balanceDb < 0 ? 'Right is louder' : 'Centered'}>
+                    {Math.abs(section.balanceDb) < 0.05 ? 'C' : `${section.balanceDb > 0 ? 'L' : 'R'} ${Math.abs(section.balanceDb).toFixed(1)}`}
+                  </td>
+                  <td className="num">{Math.max(...section.dcOffset.map(Math.abs)).toFixed(4)}</td>
                   <td className="flags">
                     {section.warnings.map((w) => (
                       <span key={w.code} className="flag" title={w.message}>

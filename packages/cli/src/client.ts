@@ -156,6 +156,11 @@ export class ApiClient {
     return this.request<JobState>('GET', `/v1/jobs/${encodeURIComponent(id)}`)
   }
 
+  /** Cancels a running job. Finished jobs come back unchanged. */
+  cancelJob(id: string): Promise<JobState> {
+    return this.request<JobState>('DELETE', `/v1/jobs/${encodeURIComponent(id)}`)
+  }
+
   /** Polls a job until it leaves "running". Returns the last state seen on timeout. */
   async waitForJob(id: string, options: WaitOptions = {}): Promise<{ job: JobState; timedOut: boolean }> {
     const interval = options.intervalMs ?? 250
@@ -190,7 +195,7 @@ export class ApiClient {
     }
   }
 
-  async request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
     const response = await this.open(method, path, body, { accept: 'application/json' })
     const text = await readBody(response)
     const status = response.statusCode ?? 500

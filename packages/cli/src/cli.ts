@@ -7,6 +7,7 @@ import { CliError, EXIT, VERSION, errorMessage, usageError } from './errors'
 import { compact, extractPaths, formatCommands, formatEvent, formatJob, formatReport, formatStatus, pretty } from './format'
 import { runMcpServer } from './mcp'
 import { type JsonSchemaProperty, type ParamInfo, type TrackRef, coerceParam, parseBars, parseParamValue, requireTrackRef, resolveParam, slug, splitTarget } from './resolve'
+import { resolve as resolvePath } from 'node:path'
 
 export interface CliIO {
   stdout: (text: string) => void
@@ -122,6 +123,25 @@ const COMMANDS: Record<string, CommandDef> = {
   undo: { usage: 'reborn undo', summary: 'Undo the last edit.', run: (ctx) => simpleRuntime(noArgs(ctx), 'history.undo', {}, 'Undone.') },
   redo: { usage: 'reborn redo', summary: 'Redo the last undone edit.', run: (ctx) => simpleRuntime(noArgs(ctx), 'history.redo', {}, 'Redone.') },
   save: { usage: 'reborn save', summary: 'Save the open project.', run: (ctx) => simpleRuntime(noArgs(ctx), 'project.save', {}, 'Saved.') },
+  open: {
+    usage: 'reborn open <path> [--discard-changes]',
+    summary: 'Open a project folder or file in RE:BORN.',
+    details: 'If the open project has unsaved changes, RE:BORN refuses unless you pass --discard-changes.',
+    flags: { 'discard-changes': 'boolean' },
+    run: (ctx) => {
+      const path = one(ctx, 'path')
+      return simpleRuntime(ctx, 'project.open', { path: resolvePath(path), ...(ctx.args.flags['discard-changes'] === true && { discardChanges: true }) }, `Opened ${path}.`)
+    },
+  },
+  cancel: {
+    usage: 'reborn cancel <job>',
+    summary: 'Cancel a running render or analysis job.',
+    run: async (ctx) => {
+      const id = one(ctx, 'job')
+      const job = await (await ctx.client()).cancelJob(id)
+      ctx.out(ctx.json ? compact(job) : job.status === 'cancelled' ? `Cancelled ${id}.` : `Job ${id} already ${job.status}.`)
+    },
+  },
   render: {
     usage: 'reborn render [--stems] [--out path] [--wait] [--timeout seconds]',
     summary: 'Render the mix (or stems) and print the output path(s).',
@@ -330,7 +350,22 @@ async function settleJob(ctx: Context, response: RuntimeResponse, what: string):
     return null
   }
   const client = await ctx.client()
-  const { job, timedOut } = await client.waitForJob(response.jobId, { intervalMs: ctx.io.pollIntervalMs, timeoutMs: timeoutMs(ctx), signal: ctx.io.signal })
+  let shown = -1
+  const onProgress = (state: JobState) => {
+    if (ctx.json || state.status !== 'running' || state.total <= 0) return
+    const percent = Math.floor((state.completed / state.total) * 10) * 10
+    if (percent > shown) {
+      shown = percent
+      ctx.io.stderr(`${what}: ${percent}%
+`)
+    }
+  }
+  const { job, timedOut } = await client.waitForJob(response.jobId, { intervalMs: ctx.io.pollIntervalMs, timeoutMs: timeoutMs(ctx), signal: ctx.io.signal, onProgress })
+  // Interrupting a --wait cancels the job, so a render doesn't keep running unseen.
+  if (ctx.io.signal?.aborted && job.status === 'running') {
+    await client.cancelJob(job.id).catch(() => undefined)
+    throw new CliError(`${what} cancelled.`, EXIT.generic)
+  }
   if (timedOut) throw new CliError(`${what} is still running (${formatJob(job)}).`, EXIT.generic, 'unavailable', `Check it later with \`reborn watch\` or GET /v1/jobs/${job.id}.`)
   if (job.status !== 'done') throw new CliError(`${what} ${job.status}${job.message ? `: ${job.message}` : '.'}`, EXIT.generic, 'internal')
   return job

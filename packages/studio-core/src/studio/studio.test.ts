@@ -313,6 +313,7 @@ describe('every command', () => {
       'parameter.set', 'device.update', 'drum.voice.set', 'macro.set', 'pad.set', 'deck.set', 'sample.slice', 'asset.add', 'pattern.create', 'pattern.write', 'pattern.update', 'step.set', 'drum.step.set',
       'pad.hit', 'pad.record', 'clip.create', 'clip.move', 'clip.resize', 'clip.duplicate', 'clip.delete', 'clip.makeUnique', 'clip.split', 'clip.set', 'time.insert', 'time.delete',
       'section.add', 'section.update', 'section.remove', 'scene.add', 'scene.set', 'scene.remove', 'scene.record', 'automation.write', 'automation.clear',
+      'pattern.quantize', 'groove.apply', 'macro.map',
     ]
     expect([...COMMANDS.keys()].sort()).toEqual([...covered].sort())
   })
@@ -364,5 +365,43 @@ describe('every command', () => {
     step('scene.set', { sceneId: scene.sceneId, trackId: 'Sampler', patternId: created.patternId, name: 'Pads' })
     step('scene.remove', { sceneId: scene.sceneId })
     expect(project.revision).toBeGreaterThan(10)
+  })
+})
+
+describe('groove and quantize', () => {
+  it('applies a repeating groove to active and inactive steps and quantizes it back', () => {
+    let project = fresh()
+    const patternId = project.clips.find((c) => project.tracks.find((t) => t.id === c.trackId)?.kind === 'drum')!.patternId!
+    project = run(project, 'groove.apply', { patternId, groove: [0, 0.3], amount: 0.5 }).project
+    const lane = () => (project.patterns[patternId] as { lanes: Record<string, { micro: number }[]> }).lanes.kick
+    expect(lane()[0].micro).toBe(0)
+    expect(lane()[1].micro).toBeCloseTo(0.15)
+    expect(lane()[3].micro).toBeCloseTo(0.15)
+    project = run(project, 'pattern.quantize', { patternId, strength: 0.5 }).project
+    expect(lane()[1].micro).toBeCloseTo(0.075)
+    project = run(project, 'pattern.quantize', { patternId }).project
+    expect(lane()[1].micro).toBe(0)
+  })
+
+  it('rejects an empty groove', () => {
+    const project = fresh()
+    const patternId = Object.keys(project.patterns)[0]
+    expect(() => run(project, 'groove.apply', { patternId, groove: [] })).toThrow(/at least one/)
+  })
+})
+
+describe('macro.map', () => {
+  it('maps one macro to several parameters, inverted ranges included', () => {
+    let project = fresh()
+    project = run(project, 'macro.map', { trackId: 'Acid 1', index: 0, name: 'Squelch', targets: [{ param: 'device.cutoff', min: 0.2, max: 0.8 }, { param: 'device.resonance', min: 0.9, max: 0.3 }] }).project
+    project = run(project, 'macro.set', { trackId: 'Acid 1', index: 0, value: 1 }).project
+    const track = project.tracks.find((t) => t.name === 'Acid 1')!
+    expect(track.macros[0].name).toBe('Squelch')
+    expect(track.device.kind === 'acid' && track.device.cutoff).toBeCloseTo(0.8)
+    expect(track.device.kind === 'acid' && track.device.resonance).toBeCloseTo(0.3)
+  })
+
+  it('rejects unknown parameters', () => {
+    expect(() => run(fresh(), 'macro.map', { trackId: 'Acid 1', index: 0, targets: [{ param: 'device.nope' }] })).toThrow(/no parameter/)
   })
 })

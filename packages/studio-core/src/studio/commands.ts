@@ -3,6 +3,7 @@ import {
   type Clip,
   type MasterState,
   type NotePattern,
+  type Pattern,
   type Origin,
   type PadHit,
   type PadState,
@@ -388,6 +389,35 @@ const SPECS: CommandSpec[] = [
     },
   },
   {
+    type: 'macro.map',
+    summary: 'Rename a macro or set the parameters it drives. Each target maps the macro’s 0..1 to min..max of one parameter (min above max inverts it).',
+    mutates: true,
+    params: {
+      trackId: s('Track ID or name.'),
+      index: i('Macro 0..7.', true, { min: 0, max: 7 }),
+      name: s('Macro name.', false),
+      targets: { type: 'array', description: 'Targets {param, min, max}; omit min/max for the full range.', required: false, items: { type: 'object', description: 'Target.' } },
+    },
+    run: (project, p) => {
+      const track = requireTrack(project, str(p, 'trackId'))
+      const index = num(p, 'index')
+      const macro = track.macros[index]
+      if (!macro) throw new StudioError('not_found', `${track.name} has no macro ${index + 1}.`)
+      let targets = macro.targets
+      if (p.targets !== undefined) {
+        const list = p.targets as { param?: string; min?: number; max?: number }[]
+        if (list.length > 8) throw new StudioError('invalid', 'A macro drives at most 8 parameters.')
+        targets = list.map((t) => {
+          const spec = findParamSpec(track, String(t.param))
+          if (!spec) throw new StudioError('invalid', `${track.name} has no parameter ${t.param}.`)
+          return { param: spec.id, min: clamp(t.min ?? spec.min, spec.min, spec.max), max: clamp(t.max ?? spec.max, spec.min, spec.max) }
+        })
+      }
+      const name = opt<string>(p, 'name') !== undefined ? String(p.name).slice(0, 24) || macro.name : macro.name
+      return { project: updateTrack(project, track.id, (t) => ({ ...t, macros: t.macros.map((m, idx) => (idx === index ? { ...m, name, targets } : m)) })) }
+    },
+  },
+  {
     type: 'pad.set',
     summary: 'Change a sampler pad: region, pitch, gain, mode, reverse, choke group, envelope, or filter.',
     mutates: true,
@@ -551,6 +581,32 @@ const SPECS: CommandSpec[] = [
           return next
         }),
       }
+    },
+  },
+  {
+    type: 'pattern.quantize',
+    summary: 'Pull every step or hit of a pattern toward the grid. Strength 1 removes all microtiming; 0.5 halves it.',
+    mutates: true,
+    params: { patternId: s('Pattern ID.'), strength: n('0..1.', false, { min: 0, max: 1 }) },
+    run: (project, p) => {
+      const keep = 1 - (opt<number>(p, 'strength') ?? 1)
+      return { project: updatePattern(project, str(p, 'patternId'), (pt) => mapMicro(pt, (micro) => micro * keep)) }
+    },
+  },
+  {
+    type: 'groove.apply',
+    summary: 'Apply a groove template (microtiming per step position, -0.5..0.5 of a step, repeating) to a pattern, scaled by amount.',
+    mutates: true,
+    params: {
+      patternId: s('Pattern ID.'),
+      groove: { type: 'array', description: 'Offsets per step position, in steps.', required: true, items: { type: 'number', description: 'Offset.' } },
+      amount: n('0..1.', false, { min: 0, max: 1 }),
+    },
+    run: (project, p) => {
+      const groove = (p.groove as number[]).map((x) => clamp(Number(x) || 0, -0.5, 0.5))
+      if (!groove.length) throw new StudioError('invalid', 'The groove needs at least one offset.')
+      const amount = opt<number>(p, 'amount') ?? 1
+      return { project: updatePattern(project, str(p, 'patternId'), (pt) => mapMicro(pt, (_micro, step) => Math.round(groove[step % groove.length] * amount * 1000) / 1000)) }
     },
   },
   {
@@ -886,6 +942,13 @@ function mergeLocks(current: Record<string, number>, patch: Record<string, numbe
     else if (Number.isFinite(Number(value))) next[key] = Number(value)
   }
   return next
+}
+
+/** Rewrites microtiming on every step, hit, and pad hit of a pattern. */
+function mapMicro(pattern: Pattern, fn: (micro: number, step: number) => number): Pattern {
+  if (pattern.kind === 'notes') return { ...pattern, steps: pattern.steps.map((st, i) => ({ ...st, micro: fn(st.micro, i) })) }
+  if (pattern.kind === 'drums') return { ...pattern, lanes: Object.fromEntries(Object.entries(pattern.lanes).map(([voice, lane]) => [voice, lane.map((h, i) => ({ ...h, micro: fn(h.micro, i) }))])) as typeof pattern.lanes }
+  return { ...pattern, hits: pattern.hits.map((h) => ({ ...h, micro: fn(h.micro, h.step) })) }
 }
 
 export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map(SPECS.map((spec) => [spec.type, spec]))

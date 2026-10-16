@@ -14,6 +14,7 @@ import type { Command } from './studio/commands'
 //   POST /v1/execute               ExecuteRequest → ExecuteResponse
 //   POST /v1/runtime               RuntimeRequest → RuntimeResponse
 //   GET  /v1/jobs/:id              → JobState
+//   DELETE /v1/jobs/:id            → JobState (cancels a running job; write token)
 //   GET  /v1/events                → text/event-stream of ApiEvent
 //
 // The server rejects requests whose Host is not 127.0.0.1:<port> or
@@ -86,6 +87,10 @@ export type RuntimeAction =
   | 'analysis.run'
   | 'proposal.list'
   | 'proposal.status'
+  /** Opens a project folder or file by path (desktop). Params: {path}. */
+  | 'project.open'
+  /** Internal: the server asks the app to abort a job. Params: {jobId}. */
+  | 'job.cancel'
 
 export interface RuntimeRequest {
   action: RuntimeAction

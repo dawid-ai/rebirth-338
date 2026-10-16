@@ -1,11 +1,11 @@
 import { ArrowRight, Upload } from 'lucide-react'
 import { type PointerEvent as ReactPointerEvent, useMemo, useRef, useState } from 'react'
-import { estimateKey, estimateTempo, sliceByBeats, sliceByTransients, sliceEqual } from '@reborn/analysis'
+import { detectOnsets, estimateDownbeat, estimateKey, estimateTempo, extractGroove, sliceByBeats, sliceByTransients, sliceEqual } from '@reborn/analysis'
 import { studio } from '@reborn/studio-core'
 import { engine, importAudioFile } from '../audio/host'
 import { mono, peaks } from '../audio/peaks'
 import { PAD_KEYS, PAD_ORDER, recordHit } from '../audio/recorder'
-import { dispatch, getState, select, useStudio } from '../state/store'
+import { dispatch, getState, select, toast, useStudio } from '../state/store'
 
 type Track = studio.Track
 type Clip = studio.Clip
@@ -90,6 +90,46 @@ export async function loadIntoSampler(trackId: string, assetId: string) {
     { label: `Load and chop ${name}` },
   )
   select({ kind: 'slice', trackId, index: null })
+}
+
+/**
+ * Groove extraction: measures how this sample's hits sit against a straight
+ * 1/16 grid (from its downbeat) and writes that feel into another pattern.
+ */
+function GrooveApply({ buffer, bpm }: { buffer: AudioBuffer; bpm: number }) {
+  const clips = useStudio((s) => s.project.clips)
+  const patterns = useStudio((s) => s.project.patterns)
+  const tracks = useStudio((s) => s.project.tracks)
+  const targets = [...new Set(clips.map((c) => c.patternId).filter((id): id is string => Boolean(id && patterns[id])))].map((id) => {
+    const track = tracks.find((t) => t.id === clips.find((c) => c.patternId === id)?.trackId)
+    return { id, label: `${track?.name ?? 'Track'} · ${patterns[id].name}` }
+  })
+  const [target, setTarget] = useState('')
+  if (!bpm || !targets.length) return null
+  const apply = () => {
+    const patternId = target || targets[0].id
+    const signal = mono(buffer)
+    const downbeat = estimateDownbeat(signal, buffer.sampleRate, { bpm })
+    const onsets = detectOnsets(signal, buffer.sampleRate).map((t) => t - downbeat).filter((t) => t > -0.03)
+    const groove = extractGroove(onsets, bpm)
+    dispatch({ type: 'groove.apply', params: { patternId, groove, amount: 1 } }, { label: 'Apply groove' })
+    const swing = Math.round(Math.max(...groove.filter((_, i) => i % 2 === 1).map(Math.abs), 0) * 100)
+    toast(`Applied this sample's feel to ${targets.find((t) => t.id === patternId)?.label}. Off-beats move up to ${swing}% of a step.`, 'success')
+  }
+  return (
+    <span className="groove-apply">
+      <select value={target || targets[0].id} aria-label="Pattern to receive the groove" onChange={(event) => setTarget(event.target.value)}>
+        {targets.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.label}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="chip-btn" onClick={apply} title="Copy this sample's timing feel onto the chosen pattern. Undo with Ctrl+Z; quantize in the dock to remove it.">
+        Apply groove
+      </button>
+    </span>
+  )
 }
 
 export function ChopEditor({ track }: { track: Track }) {
@@ -184,6 +224,7 @@ export function ChopEditor({ track }: { track: Track }) {
             </button>
           ))}
         </div>
+        {buffer && <GrooveApply buffer={buffer} bpm={source.bpm ?? analysis?.bpm ?? 0} />}
         <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'sample.slice', params: { trackId: track.id, slices: source.slices, assignPads: true } }, { label: 'Distribute slices to pads' })} title="Assign slice N to pad N">
           Slices <ArrowRight size={12} /> pads
         </button>

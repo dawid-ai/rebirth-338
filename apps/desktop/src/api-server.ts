@@ -46,6 +46,7 @@ export class ApiServer {
   private server: Server | null = null
   private discovery: ApiDiscovery | null = null
   private readonly jobs = new Map<string, JobState>()
+  private readonly cancelled = new Set<string>()
   private readonly streams = new Set<ServerResponse>()
   private readonly seen = new Map<string, number>()
   private heartbeat: ReturnType<typeof setInterval> | null = null
@@ -84,6 +85,16 @@ export class ApiServer {
   }
 
   emit(event: ApiEvent): void {
+    // Progress from the app updates the job the server tracks; the app cannot
+    // change a job's status, which only the server sets.
+    if (event.type === 'job') {
+      const state = this.jobs.get(event.job.id)
+      if (!state) return
+      if (state.status !== 'running') return
+      const next = { ...state, completed: event.job.completed, total: event.job.total }
+      this.jobs.set(state.id, next)
+      event = { type: 'job', job: next }
+    }
     const line = `data: ${JSON.stringify(event)}\n\n`
     for (const stream of this.streams) stream.write(line)
   }
@@ -161,6 +172,19 @@ export class ApiServer {
       if (!state) throw new HttpError('not_found', 'No such job.')
       return state
     }
+    if (req.method === 'DELETE' && job) {
+      if (role !== 'write') throw new HttpError('forbidden', 'The read token cannot cancel jobs.')
+      const id = decodeURIComponent(job[1])
+      const state = this.jobs.get(id)
+      if (!state) throw new HttpError('not_found', 'No such job.')
+      if (state.status !== 'running') return state
+      this.cancelled.add(id)
+      const next: JobState = { ...state, status: 'cancelled' }
+      this.jobs.set(id, next)
+      this.emit({ type: 'job', job: next })
+      await this.forward('runtime', { action: 'job.cancel', params: { jobId: id } }).catch(() => undefined)
+      return next
+    }
     if (req.method === 'GET' && path === '/v1/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
       res.write(': connected\n\n')
@@ -182,13 +206,15 @@ export class ApiServer {
     this.jobs.set(id, { id, kind, status: 'running', completed: 0, total: 1 })
     void (async () => {
       try {
-        const reply = (await this.forward('runtime', request, 600_000)) as { result?: { files?: RenderedFile[] } & Record<string, unknown> }
+        const reply = (await this.forward('runtime', { ...request, params: { ...request.params, jobId: id } }, 600_000)) as { result?: { files?: RenderedFile[] } & Record<string, unknown> }
+        if (this.cancelled.delete(id)) return
         if (kind === 'render') {
           const target = typeof request.params?.path === 'string' ? request.params.path : undefined
           const paths = await this.options.writeFiles(reply.result?.files ?? [], target)
           update({ status: 'done', completed: 1, result: request.action === 'render.mix' ? { path: paths[0] } : { paths } })
         } else update({ status: 'done', completed: 1, result: reply.result })
       } catch (error) {
+        if (this.cancelled.delete(id)) return
         update({ status: 'failed', message: error instanceof Error ? error.message : String(error) })
       }
     })()

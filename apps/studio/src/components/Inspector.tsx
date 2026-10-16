@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import { studio } from '@reborn/studio-core'
 import { engine } from '../audio/host'
 import { resample } from '../audio/resample'
+import { recordParamMove } from '../state/record'
+import { splitSelectedClip } from '../state/clipActions'
 import { modifiers } from '../state/modifiers'
 import { applyProposal, isPicked, rejectProposal, togglePick, usePreview } from '../state/proposals'
 import { type Selection, dispatch, getState, select, setPrefs, setState, useStudio } from '../state/store'
@@ -13,6 +15,52 @@ type Track = studio.Track
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const db = (v: number) => (v <= -60 ? '−∞ dB' : `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`)
+
+/** Macro mapping: name each macro and choose the parameters (and ranges) it drives. */
+function MacroEditor({ track }: { track: studio.Track }) {
+  const specs = studio.paramSpecs(track)
+  const map = (index: number, patch: { name?: string; targets?: studio.MacroTarget[] }) => dispatch({ type: 'macro.map', params: { trackId: track.id, index, ...patch } }, { label: `Map ${track.name} macro ${index + 1}` })
+  if (!track.macros.length) return null
+  return (
+    <Group title="Macros">
+      <ul className="macro-map">
+        {track.macros.map((macro, index) => (
+          <li key={index}>
+            <input type="text" defaultValue={macro.name} key={`${track.id}-${index}-${macro.name}`} aria-label={`Macro ${index + 1} name`} onKeyDown={(event) => event.stopPropagation()} onBlur={(event) => event.target.value !== macro.name && map(index, { name: event.target.value })} />
+            <div className="macro-targets">
+              {macro.targets.map((target) => {
+                const spec = studio.findParamSpec(track, target.param)
+                return (
+                  <span key={target.param} className="chip">
+                    {spec?.label ?? target.param} {spec ? `${studio.formatParam(spec, target.min)}–${studio.formatParam(spec, target.max)}` : ''}
+                    <button type="button" aria-label={`Stop macro ${index + 1} driving ${spec?.label ?? target.param}`} onClick={() => map(index, { targets: macro.targets.filter((t) => t.param !== target.param) })}>
+                      ×
+                    </button>
+                  </span>
+                )
+              })}
+              {macro.targets.length < 8 && (
+                <select
+                  value=""
+                  aria-label={`Add a parameter to macro ${index + 1}`}
+                  onChange={(event) => event.target.value && map(index, { targets: [...macro.targets, { param: event.target.value, min: studio.findParamSpec(track, event.target.value)!.min, max: studio.findParamSpec(track, event.target.value)!.max }] })}
+                >
+                  <option value="">+ Add</option>
+                  {specs.filter((spec) => !macro.targets.some((t) => t.param === spec.id)).map((spec) => (
+                    <option key={spec.id} value={spec.id}>
+                      {spec.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="muted small">Each macro sweeps its parameters across their ranges. The CLI and agents can set custom or inverted ranges with macro.map.</p>
+    </Group>
+  )
+}
 
 /** Resample: prints this source over the loop range (or the whole song) to a new audio track. */
 function PrintButton({ onPrint }: { onPrint: () => void }) {
@@ -62,6 +110,7 @@ export function ParamKnob({ track, param, label, size = 'sm' }: { track: Track; 
           }
         }
         dispatch({ type: 'parameter.set', params: { trackId: track.id, param, value: next } }, { label: `${track.name} ${spec.label}`, key: `param-${track.id}-${param}` })
+        recordParamMove(track.id, param, next)
       }}
     />
   )
@@ -223,14 +272,14 @@ function MixerPanel({ track }: { track: Track }) {
   return (
     <>
       <Group title="Mixer">
-        <Slider midi={{ kind: 'param', trackId: track.id, param: 'mixer.volume', label: `${track.name} volume` }} label="Volume" value={track.mixer.volume} min={-60} max={6} step={0.5} ghost={ghost && ghost.mixer.volume !== track.mixer.volume ? ghost.mixer.volume : null} format={db} onChange={(volume) => dispatch({ type: 'mixer.set', params: { trackId: track.id, volume } }, { label: `${track.name} volume`, key: `vol-${track.id}` })} />
-        <Slider midi={{ kind: 'param', trackId: track.id, param: 'mixer.pan', label: `${track.name} pan` }} label="Pan" value={track.mixer.pan} min={-1} max={1} format={(v) => (Math.abs(v) < 0.01 ? 'Center' : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`)} onChange={(pan) => dispatch({ type: 'mixer.set', params: { trackId: track.id, pan } }, { label: `Pan ${track.name}`, key: `pan-${track.id}` })} />
+        <Slider midi={{ kind: 'param', trackId: track.id, param: 'mixer.volume', label: `${track.name} volume` }} label="Volume" value={track.mixer.volume} min={-60} max={6} step={0.5} ghost={ghost && ghost.mixer.volume !== track.mixer.volume ? ghost.mixer.volume : null} format={db} onChange={(volume) => { dispatch({ type: 'mixer.set', params: { trackId: track.id, volume } }, { label: `${track.name} volume`, key: `vol-${track.id}` }); recordParamMove(track.id, 'mixer.volume', volume) }} />
+        <Slider midi={{ kind: 'param', trackId: track.id, param: 'mixer.pan', label: `${track.name} pan` }} label="Pan" value={track.mixer.pan} min={-1} max={1} format={(v) => (Math.abs(v) < 0.01 ? 'Center' : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`)} onChange={(pan) => { dispatch({ type: 'mixer.set', params: { trackId: track.id, pan } }, { label: `Pan ${track.name}`, key: `pan-${track.id}` }); recordParamMove(track.id, 'mixer.pan', pan) }} />
         {project.returns.map((ret) => {
           const send = track.mixer.sends[ret.id] ?? { level: 0, tap: 'post' as const }
           const g = ghost?.mixer.sends[ret.id]
           return (
             <div key={ret.id} className="send-row">
-              <Slider midi={{ kind: 'param', trackId: track.id, param: `send.${ret.id}`, label: `${track.name} ${ret.name} send` }} label={`${ret.name} send`} value={send.level} min={0} max={1} ghost={g && g.level !== send.level ? g.level : null} format={pct} onChange={(level) => dispatch({ type: 'send.set', params: { trackId: track.id, returnId: ret.id, level } }, { label: `${track.name} send`, key: `send-${track.id}-${ret.id}` })} />
+              <Slider midi={{ kind: 'param', trackId: track.id, param: `send.${ret.id}`, label: `${track.name} ${ret.name} send` }} label={`${ret.name} send`} value={send.level} min={0} max={1} ghost={g && g.level !== send.level ? g.level : null} format={pct} onChange={(level) => { dispatch({ type: 'send.set', params: { trackId: track.id, returnId: ret.id, level } }, { label: `${track.name} send`, key: `send-${track.id}-${ret.id}` }); recordParamMove(track.id, `send.${ret.id}`, level) }} />
               <Seg label={`${ret.name} send tap`} value={send.tap} options={[{ value: 'pre', label: 'Pre-fader' }, { value: 'post', label: 'Post-fader' }]} onChange={(tap) => dispatch({ type: 'send.set', params: { trackId: track.id, returnId: ret.id, tap } }, { label: `${track.name} send ${tap}-fader` })} />
             </div>
           )
@@ -259,6 +308,7 @@ function TrackPanel({ track }: { track: Track }) {
       </h2>
       <DevicePanel track={track} />
       <MixerPanel track={track} />
+      <MacroEditor track={track} />
       <Group title="Track">
         <div className="insp-row">
           <input type="color" value={track.color} aria-label="Track color" onChange={(event) => dispatch({ type: 'track.update', params: { trackId: track.id, color: event.target.value } }, { label: 'Track color', key: `color-${track.id}` })} />
@@ -313,6 +363,9 @@ function ClipPanel({ clipId }: { clipId: string }) {
       {pattern?.kind === 'notes' && <Slider label="Transpose" value={clip.transpose} min={-24} max={24} step={1} format={(v) => `${v > 0 ? '+' : ''}${v} st`} onChange={(transpose) => set({ transpose }, 'Transpose clip')} />}
       <div className="insp-row">
         <Toggle label="Mute clip" tone="alert" on={clip.mute} onChange={(mute) => set({ mute }, mute ? 'Mute clip' : 'Unmute clip')} />
+        <button type="button" className="chip-btn" onClick={splitSelectedClip} title="Split this clip at the playhead (Ctrl+E)">
+          Split at playhead
+        </button>
         <button type="button" className="chip-btn danger" onClick={() => dispatch({ type: 'clip.delete', params: { clipId: clip.id } }, { label: 'Delete clip' }) && select({ kind: 'none' })}>
           <Trash2 size={12} />
           Delete
@@ -657,6 +710,31 @@ function LanePanel({ trackId, param }: { trackId: string; param: string }) {
   )
 }
 
+function AudioDevicePanel() {
+  const audio = useStudio((s) => s.prefs.audio)
+  const projectRate = useStudio((s) => s.project.sampleRate)
+  const set = (patch: Partial<typeof audio>) => setPrefs({ audio: { ...audio, ...patch } })
+  return (
+    <Group title="Audio device">
+      <span className="field-label">Sample rate</span>
+      <Seg
+        label="Sample rate"
+        value={audio.sampleRate === null ? 'project' : String(audio.sampleRate)}
+        options={[{ value: 'project', label: `Project (${projectRate / 1000} kHz)` }, { value: '44100', label: '44.1 kHz' }, { value: '48000', label: '48 kHz' }]}
+        onChange={(v) => set({ sampleRate: v === 'project' ? null : Number(v) })}
+      />
+      <span className="field-label">Latency</span>
+      <Seg
+        label="Latency"
+        value={audio.latency}
+        options={[{ value: 'interactive', label: 'Low' }, { value: 'balanced', label: 'Medium' }, { value: 'playback', label: 'Safe' }]}
+        onChange={(latency) => set({ latency })}
+      />
+      <p className="muted small">Higher latency uses a larger buffer, which avoids crackles on busy projects. The device restarts when you change either setting{engine.latency ? `; output latency is now ${Math.round(engine.latency * 1000)} ms` : ''}.</p>
+    </Group>
+  )
+}
+
 function ProjectPanel() {
   const project = useStudio((s) => s.project)
   const density = useStudio((s) => s.prefs.density)
@@ -683,6 +761,7 @@ function ProjectPanel() {
         <dt>Revision</dt>
         <dd>{project.revision}</dd>
       </dl>
+      <AudioDevicePanel />
       <Group title="Sections">
         <ul className="sec-list">
           {project.sections.map((s) => (

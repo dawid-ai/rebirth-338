@@ -141,6 +141,9 @@ export async function startFakeServer(options: FakeServerOptions = {}): Promise<
         return { jobId: startJob('render', { paths: state.project.tracks.map((t) => join(dir, 'stems', `${t.name}.wav`)) }) }
       case 'analysis.run':
         return { jobId: startJob('analysis', { from: params.from ?? 1, to: params.to ?? state.project.length, lufs: -9.24, peak: -0.8, notes: ['Kick and Acid 1 overlap at 60 Hz'] }) }
+      case 'project.open':
+        if (state.project.revision > 0 && params.discardChanges !== true) throw new HttpError('conflict', 'The open project has unsaved changes.')
+        return { result: { name: 'Opened', path: params.path, revision: 0 } }
       case 'proposal.list':
         return { result: state.proposals }
       case 'proposal.status': {
@@ -181,6 +184,14 @@ export async function startFakeServer(options: FakeServerOptions = {}): Promise<
         }
         emit({ type: 'job', job: entry.job })
       }
+      return entry.job
+    }
+    if (req.method === 'DELETE' && jobMatch) {
+      if (role !== 'write') throw new HttpError('forbidden', 'The read token cannot cancel jobs.')
+      const entry = jobs.get(decodeURIComponent(jobMatch[1]))
+      if (!entry) throw new HttpError('not_found', 'No such job.')
+      if (entry.job.status === 'running') entry.job = { ...entry.job, status: 'cancelled' }
+      emit({ type: 'job', job: entry.job })
       return entry.job
     }
     if (req.method === 'GET' && path === '/v1/events') {

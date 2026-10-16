@@ -66,6 +66,8 @@ export interface Prefs {
   shortcuts: Record<string, string>
   onboardingDone: string[]
   midiProfiles: MidiProfiles
+  /** Audio device: sample rate (null follows the project) and latency. */
+  audio: { sampleRate: number | null; latency: 'interactive' | 'balanced' | 'playback' }
 }
 
 export interface Toast {
@@ -131,6 +133,8 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   help: 'F1',
   'region.next': 'F6',
   loop: 'L',
+  split: 'Ctrl+E',
+  'play.selection': 'Enter',
 }
 
 const PREFS_KEY = 'reborn.studio.prefs'
@@ -147,6 +151,7 @@ function loadPrefs(): Prefs {
     shortcuts: DEFAULT_SHORTCUTS,
     onboardingDone: [],
     midiProfiles: {},
+    audio: { sampleRate: null, latency: 'interactive' },
   }
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as Partial<Prefs> | null

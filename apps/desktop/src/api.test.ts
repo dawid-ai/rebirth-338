@@ -114,6 +114,31 @@ describe('ApiServer', () => {
     await api.stop()
   })
 
+  it('merges app progress into jobs and cancels them through the app', async () => {
+    const seen: { action: string; params?: Record<string, unknown> }[] = []
+    let finish: (value: { status: number; body: unknown }) => void = () => undefined
+    const api = server({
+      request: (_route, body) => {
+        const request = body as { action: string; params?: Record<string, unknown> }
+        seen.push(request)
+        if (request.action === 'job.cancel') return Promise.resolve({ status: 200, body: { result: { cancelled: true } } })
+        return new Promise((resolve) => (finish = resolve))
+      },
+    })
+    const discovery = await api.start()
+    const { jobId } = (await call(discovery, 'POST', '/v1/runtime', { body: { action: 'render.mix' } })).body as { jobId: string }
+    expect(seen[0].params?.jobId).toBe(jobId)
+    api.emit({ type: 'job', job: { id: jobId, kind: 'render', status: 'done', completed: 3, total: 8 } })
+    expect((await call(discovery, 'GET', `/v1/jobs/${jobId}`)).body).toMatchObject({ status: 'running', completed: 3, total: 8 })
+    expect((await call(discovery, 'DELETE', `/v1/jobs/${jobId}`, { token: discovery.readToken })).status).toBe(403)
+    expect((await call(discovery, 'DELETE', `/v1/jobs/${jobId}`)).body).toMatchObject({ status: 'cancelled' })
+    expect(seen.at(-1)).toEqual({ action: 'job.cancel', params: { jobId } })
+    finish({ status: 200, body: { result: { files: [] } } })
+    await new Promise((r) => setTimeout(r, 20))
+    expect((await call(discovery, 'GET', `/v1/jobs/${jobId}`)).body).toMatchObject({ status: 'cancelled' })
+    await api.stop()
+  })
+
   it('reports the window as unavailable when the renderer does not answer', async () => {
     const api = server({ request: () => Promise.reject(new Error('The RE:BORN window is not ready.')) })
     const discovery = await api.start()

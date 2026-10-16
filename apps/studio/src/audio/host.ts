@@ -9,6 +9,15 @@ type StudioProject = studio.StudioProject
 // Owns the single audio engine and keeps it in step with the store.
 
 export const engine = new StudioEngine(getState().project)
+engine.configureDevice(getState().prefs.audio)
+
+let lastAudio = getState().prefs.audio
+subscribe(() => {
+  const { audio } = getState().prefs
+  if (audio === lastAudio) return
+  lastAudio = audio
+  engine.configureDevice(audio)
+})
 
 let lastProject: StudioProject | null = null
 const loading = new Set<string>()
