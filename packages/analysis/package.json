@@ -1,0 +1,9 @@
+{
+  "name": "@reborn/analysis",
+  "version": "2.0.0-dev",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
