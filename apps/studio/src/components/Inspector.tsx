@@ -26,6 +26,7 @@ export function ParamKnob({ track, param, label, size = 'sm' }: { track: Track; 
     <Knob
       size={size}
       label={label ?? spec.label}
+      midi={{ kind: 'param', trackId: track.id, param, label: `${track.name} ${spec.label}` }}
       value={studio.normalize(spec, value)}
       defaultValue={studio.normalize(spec, spec.default)}
       ghost={ghostValue !== undefined && Math.abs(ghostValue - value) > 1e-6 ? studio.normalize(spec, ghostValue) : null}
@@ -206,14 +207,14 @@ function MixerPanel({ track }: { track: Track }) {
   return (
     <>
       <Group title="Mixer">
-        <Slider label="Volume" value={track.mixer.volume} min={-60} max={6} step={0.5} ghost={ghost && ghost.mixer.volume !== track.mixer.volume ? ghost.mixer.volume : null} format={db} onChange={(volume) => dispatch({ type: 'mixer.set', params: { trackId: track.id, volume } }, { label: `${track.name} volume`, key: `vol-${track.id}` })} />
-        <Slider label="Pan" value={track.mixer.pan} min={-1} max={1} format={(v) => (Math.abs(v) < 0.01 ? 'Center' : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`)} onChange={(pan) => dispatch({ type: 'mixer.set', params: { trackId: track.id, pan } }, { label: `Pan ${track.name}`, key: `pan-${track.id}` })} />
+        <Slider midi={{ kind: 'param', trackId: track.id, param: 'mixer.volume', label: `${track.name} volume` }} label="Volume" value={track.mixer.volume} min={-60} max={6} step={0.5} ghost={ghost && ghost.mixer.volume !== track.mixer.volume ? ghost.mixer.volume : null} format={db} onChange={(volume) => dispatch({ type: 'mixer.set', params: { trackId: track.id, volume } }, { label: `${track.name} volume`, key: `vol-${track.id}` })} />
+        <Slider midi={{ kind: 'param', trackId: track.id, param: 'mixer.pan', label: `${track.name} pan` }} label="Pan" value={track.mixer.pan} min={-1} max={1} format={(v) => (Math.abs(v) < 0.01 ? 'Center' : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`)} onChange={(pan) => dispatch({ type: 'mixer.set', params: { trackId: track.id, pan } }, { label: `Pan ${track.name}`, key: `pan-${track.id}` })} />
         {project.returns.map((ret) => {
           const send = track.mixer.sends[ret.id] ?? { level: 0, tap: 'post' as const }
           const g = ghost?.mixer.sends[ret.id]
           return (
             <div key={ret.id} className="send-row">
-              <Slider label={`${ret.name} send`} value={send.level} min={0} max={1} ghost={g && g.level !== send.level ? g.level : null} format={pct} onChange={(level) => dispatch({ type: 'send.set', params: { trackId: track.id, returnId: ret.id, level } }, { label: `${track.name} send`, key: `send-${track.id}-${ret.id}` })} />
+              <Slider midi={{ kind: 'param', trackId: track.id, param: `send.${ret.id}`, label: `${track.name} ${ret.name} send` }} label={`${ret.name} send`} value={send.level} min={0} max={1} ghost={g && g.level !== send.level ? g.level : null} format={pct} onChange={(level) => dispatch({ type: 'send.set', params: { trackId: track.id, returnId: ret.id, level } }, { label: `${track.name} send`, key: `send-${track.id}-${ret.id}` })} />
               <Seg label={`${ret.name} send tap`} value={send.tap} options={[{ value: 'pre', label: 'Pre-fader' }, { value: 'post', label: 'Post-fader' }]} onChange={(tap) => dispatch({ type: 'send.set', params: { trackId: track.id, returnId: ret.id, tap } }, { label: `${track.name} send ${tap}-fader` })} />
             </div>
           )

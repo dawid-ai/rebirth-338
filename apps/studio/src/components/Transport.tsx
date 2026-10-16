@@ -1,7 +1,8 @@
-import { Circle, Download, Gauge, Pause, Play, Redo2, Repeat, SkipBack, Sparkles, Square, Timer, Undo2 } from 'lucide-react'
+import { Cable, Circle, Download, Gauge, Pause, Play, Redo2, Repeat, SkipBack, Sparkles, Square, Timer, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { engine, formatBar, togglePlay, usePlayhead } from '../audio/host'
 import { dispatch, getState, isEdited, redo, setPrefs, setState, undo, useStudio } from '../state/store'
+import { midiTarget, toggleMidiLearn } from '../midi/host'
 import { ExportDialog } from './ExportDialog'
 
 function Position() {
@@ -15,6 +16,26 @@ function Position() {
         {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
       </small>
     </div>
+  )
+}
+
+/** MIDI status. Click to map controller knobs and buttons (MIDI learn). */
+function MidiStatus() {
+  const inputs = useStudio((s) => s.midiInputs)
+  const learning = useStudio((s) => s.midiLearn !== null)
+  if (inputs === null) return null
+  const label = inputs.length ? `MIDI ${inputs.length}` : 'MIDI'
+  return (
+    <button
+      type="button"
+      className={`t-btn midi-status${learning ? ' is-on' : ''}`}
+      onClick={toggleMidiLearn}
+      aria-pressed={learning}
+      title={inputs.length ? `Connected: ${inputs.join(', ')}. Click to map controls (MIDI learn).` : 'No MIDI devices connected. Click to map controls when one is plugged in.'}
+    >
+      <Cable size={14} />
+      <span>{learning ? 'Learning' : label}</span>
+    </button>
   )
 }
 
@@ -118,10 +139,10 @@ export function Transport() {
         <button type="button" className="icon-btn" onClick={() => engine.seek(loop ? loop[0] : 0)} title="Return to start (Home)" aria-label="Return to start">
           <SkipBack size={16} />
         </button>
-        <button type="button" className="icon-btn" onClick={() => engine.stop()} title="Stop and return to start" aria-label="Stop">
+        <button type="button" className="icon-btn" onClick={() => engine.stop()} title="Stop and return to start" aria-label="Stop" data-midi-target={midiTarget({ kind: 'transport', action: 'stop', label: 'Stop' })}>
           <Square size={14} />
         </button>
-        <button type="button" className={`icon-btn play${playing ? ' is-on' : ''}`} onClick={() => void togglePlay()} title="Play or pause (Space)" aria-label={playing ? 'Pause' : 'Play'}>
+        <button type="button" className={`icon-btn play${playing ? ' is-on' : ''}`} onClick={() => void togglePlay()} title="Play or pause (Space)" aria-label={playing ? 'Pause' : 'Play'} data-midi-target={midiTarget({ kind: 'transport', action: 'play', label: 'Play or pause' })}>
           {playing ? <Pause size={18} /> : <Play size={18} />}
         </button>
         <button
@@ -131,6 +152,7 @@ export function Transport() {
           aria-pressed={recording}
           title="Arm recording (R). Pads, notes, scene launches, and macro moves record while playing."
           aria-label="Record"
+          data-midi-target={midiTarget({ kind: 'transport', action: 'record', label: 'Record' })}
         >
           <Circle size={14} fill="currentColor" />
         </button>
@@ -200,6 +222,7 @@ export function Transport() {
         </div>
       ))}
       <Health />
+      <MidiStatus />
 
       <button type="button" className="t-btn" onClick={() => setExporting(true)} title="Export WAV or stems">
         <Download size={15} />

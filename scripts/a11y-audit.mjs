@@ -20,6 +20,7 @@ const scenes = [
   ['help', async () => { await page.keyboard.press('1'); await page.keyboard.press('F1') }],
   ['palette', async () => { await page.keyboard.press('Escape'); await page.locator('.modal-backdrop').click({ position: { x: 5, y: 5 } }).catch(() => {}); await page.keyboard.press('Control+k') }],
   ['agent', async () => { await page.keyboard.press('Escape'); await page.getByRole('button', { name: /^Agent/ }).click() }],
+  ['midi learn', async () => { await page.keyboard.press('Escape'); await page.locator('.midi-status').click() }],
 ]
 const report = []
 for (const [name, act] of scenes) {

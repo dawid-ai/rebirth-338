@@ -1,3 +1,4 @@
+import type { MidiTarget } from '../midi/midi'
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from 'react'
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -9,11 +10,13 @@ interface KnobProps {
   format?: (value: number) => string
   onChange: (value: number) => void
   size?: 'sm' | 'md'
+  /** Makes the knob a MIDI learn target. */
+  midi?: MidiTarget
 }
 
 // Vertical drag, Shift for fine control, double-click to reset, arrow keys
 // to step, and Enter to type a value.
-export function Knob({ label, value, defaultValue = 0.5, ghost = null, format = (v) => `${Math.round(v * 100)}`, onChange, size = 'md' }: KnobProps) {
+export function Knob({ label, value, defaultValue = 0.5, ghost = null, format = (v) => `${Math.round(v * 100)}`, onChange, size = 'md', midi }: KnobProps) {
   const drag = useRef<{ y: number; value: number } | null>(null)
   const [active, setActive] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -45,7 +48,7 @@ export function Knob({ label, value, defaultValue = 0.5, ghost = null, format = 
   }
 
   return (
-    <div className={`knob knob-${size}${active ? ' is-active' : ''}`}>
+    <div className={`knob knob-${size}${active ? ' is-active' : ''}`} data-midi-target={midi ? JSON.stringify(midi) : undefined}>
       <div
         className="knob-dial"
         role="slider"
@@ -146,13 +149,15 @@ interface SliderProps {
   ghost?: number | null
   format: (value: number) => string
   onChange: (value: number) => void
+  /** Makes the slider a MIDI learn target. */
+  midi?: MidiTarget
 }
 
-export function Slider({ label, value, min, max, step = 0.01, ghost = null, format, onChange }: SliderProps) {
+export function Slider({ label, value, min, max, step = 0.01, ghost = null, format, onChange, midi }: SliderProps) {
   const position = ((value - min) / (max - min)) * 100
   const ghostPosition = ghost === null ? null : ((ghost - min) / (max - min)) * 100
   return (
-    <div className="slider">
+    <div className="slider" data-midi-target={midi ? JSON.stringify(midi) : undefined}>
       <div className="slider-head">
         <span>{label}</span>
         <output>

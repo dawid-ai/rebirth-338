@@ -13,6 +13,8 @@ import { Transport } from './components/Transport'
 import { desktop } from './platform/desktop'
 import { clearImportNotice, importNotice, importProjectFile, newProject, onImportNotice, openProject, saveProject } from './state/persistence'
 import { type View, dispatch, getState, redo, select, selectedTrackId, setPrefs, setState, setView, subscribe, toast, undo, useStudio } from './state/store'
+import { installLearnPicker, startMidi } from './midi/host'
+import { MidiLearnBar } from './components/MidiLearnBar'
 
 // Views and panels that are not needed for the first paint load on demand.
 const Build = lazy(() => import('./components/Build').then((m) => ({ default: m.Build })))
@@ -219,35 +221,33 @@ export default function App() {
     })
   }, [])
 
-  // MIDI input plays and records the selected instrument.
+  // MIDI: learned controls drive parameters and transport; other notes play
+  // and record the selected instrument.
   useEffect(() => {
-    const nav = navigator as Navigator & { requestMIDIAccess?: () => Promise<MIDIAccess> }
-    if (!nav.requestMIDIAccess) return
-    let access: MIDIAccess | null = null
-    const onMessage = (event: MIDIMessageEvent) => {
-      const data = event.data
-      if (!data || data.length < 3) return
-      const [status, note, velocity] = data
-      if ((status & 0xf0) !== 0x90 || velocity === 0) return
-      const s = getState()
-      const track = s.project.tracks.find((t) => t.id === selectedTrackId(s))
-      if (track?.kind === 'sampler') {
-        const pad = (note - 36 + 160) % 16
-        void engine.triggerPad(track.id, pad, (velocity / 127) * 127)
-        recordHit({ trackId: track.id, pad, velocity })
-      } else if (track?.kind === 'drum') {
-        const voice = studio.DRUM_VOICES[(note - 36 + 100) % studio.DRUM_VOICES.length]
-        void engine.previewDrum(track.id, voice, velocity)
-      } else playNote(note)
+    const stop = startMidi({
+      onNote: (note, velocity) => {
+        const s = getState()
+        const track = s.project.tracks.find((t) => t.id === selectedTrackId(s))
+        if (track?.kind === 'sampler') {
+          const pad = (note - 36 + 160) % 16
+          void engine.triggerPad(track.id, pad, velocity)
+          recordHit({ trackId: track.id, pad, velocity })
+        } else if (track?.kind === 'drum') {
+          const voice = studio.DRUM_VOICES[(note - 36 + 100) % studio.DRUM_VOICES.length]
+          void engine.previewDrum(track.id, voice, velocity)
+        } else playNote(note)
+      },
+      onRecordToggle: () => {
+        const recording = !getState().recording
+        setState({ recording })
+        if (!recording) commitSceneRecording()
+      },
+    })
+    const unpick = installLearnPicker()
+    return () => {
+      stop()
+      unpick()
     }
-    nav
-      .requestMIDIAccess()
-      .then((midi) => {
-        access = midi
-        midi.inputs.forEach((input) => input.addEventListener('midimessage', onMessage as EventListener))
-      })
-      .catch(() => undefined)
-    return () => access?.inputs.forEach((input) => input.removeEventListener('midimessage', onMessage as EventListener))
   }, [])
 
   useEffect(() => {
@@ -466,6 +466,7 @@ export default function App() {
         {helpOpen && <Help />}
       </Suspense>
       <ImportNotice />
+      <MidiLearnBar />
       <Toasts />
       {dragging && <div className="drop-overlay">Drop audio to import it, or a project file to open it</div>}
     </div>

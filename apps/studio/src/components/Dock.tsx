@@ -341,11 +341,11 @@ function ChainView({ track }: { track: Track }) {
         <li className="chain-inserts">
           <small>Insert EQ · filter · drive</small>
           <div className="chain-knobs">
-            <Knob size="sm" label="Low" value={(ins.eqLow + 12) / 24} defaultValue={0.5} format={(v) => `${(v * 24 - 12).toFixed(1)} dB`} onChange={(v) => setInsert('insert.eqLow', v * 24 - 12)} />
-            <Knob size="sm" label="Mid" value={(ins.eqMid + 12) / 24} defaultValue={0.5} format={(v) => `${(v * 24 - 12).toFixed(1)} dB`} onChange={(v) => setInsert('insert.eqMid', v * 24 - 12)} />
-            <Knob size="sm" label="High" value={(ins.eqHigh + 12) / 24} defaultValue={0.5} format={(v) => `${(v * 24 - 12).toFixed(1)} dB`} onChange={(v) => setInsert('insert.eqHigh', v * 24 - 12)} />
-            <Knob size="sm" label="Filter" value={(ins.filter + 1) / 2} defaultValue={0.5} format={(v) => (Math.abs(v - 0.5) < 0.01 ? 'Off' : v < 0.5 ? `HP ${Math.round((0.5 - v) * 200)}` : `LP ${Math.round((v - 0.5) * 200)}`)} onChange={(v) => setInsert('insert.filter', v * 2 - 1)} />
-            <Knob size="sm" label="Drive" value={ins.drive} defaultValue={0} onChange={(v) => setInsert('insert.drive', v)} />
+            <Knob size="sm" midi={{ kind: 'param', trackId: track.id, param: 'insert.eqLow', label: `${track.name} low EQ` }} label="Low" value={(ins.eqLow + 12) / 24} defaultValue={0.5} format={(v) => `${(v * 24 - 12).toFixed(1)} dB`} onChange={(v) => setInsert('insert.eqLow', v * 24 - 12)} />
+            <Knob size="sm" midi={{ kind: 'param', trackId: track.id, param: 'insert.eqMid', label: `${track.name} mid EQ` }} label="Mid" value={(ins.eqMid + 12) / 24} defaultValue={0.5} format={(v) => `${(v * 24 - 12).toFixed(1)} dB`} onChange={(v) => setInsert('insert.eqMid', v * 24 - 12)} />
+            <Knob size="sm" midi={{ kind: 'param', trackId: track.id, param: 'insert.eqHigh', label: `${track.name} high EQ` }} label="High" value={(ins.eqHigh + 12) / 24} defaultValue={0.5} format={(v) => `${(v * 24 - 12).toFixed(1)} dB`} onChange={(v) => setInsert('insert.eqHigh', v * 24 - 12)} />
+            <Knob size="sm" midi={{ kind: 'param', trackId: track.id, param: 'insert.filter', label: `${track.name} filter` }} label="Filter" value={(ins.filter + 1) / 2} defaultValue={0.5} format={(v) => (Math.abs(v - 0.5) < 0.01 ? 'Off' : v < 0.5 ? `HP ${Math.round((0.5 - v) * 200)}` : `LP ${Math.round((v - 0.5) * 200)}`)} onChange={(v) => setInsert('insert.filter', v * 2 - 1)} />
+            <Knob size="sm" midi={{ kind: 'param', trackId: track.id, param: 'insert.drive', label: `${track.name} drive` }} label="Drive" value={ins.drive} defaultValue={0} onChange={(v) => setInsert('insert.drive', v)} />
           </div>
         </li>
         <li>
@@ -380,6 +380,7 @@ function MacroRow({ track }: { track: Track }) {
           key={macro.name}
           size="sm"
           label={macro.name}
+          midi={{ kind: 'macro', index, label: `Macro ${index + 1} on the selected track` }}
           value={macro.value}
           onChange={(value) => {
             const altLock = modifiers.alt && stepTarget && selection.kind === 'step'

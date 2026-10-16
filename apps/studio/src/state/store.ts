@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { studio } from '@reborn/studio-core'
 import type { TransportSnapshot } from '@reborn/audio-engine/studio'
+import type { MidiProfiles, MidiTarget } from '../midi/midi'
 
 type StudioProject = studio.StudioProject
 type Command = studio.Command
@@ -64,6 +65,7 @@ export interface Prefs {
   metronome: boolean
   shortcuts: Record<string, string>
   onboardingDone: string[]
+  midiProfiles: MidiProfiles
 }
 
 export interface Toast {
@@ -105,6 +107,10 @@ export interface StudioState {
   paletteOpen: boolean
   agentOpen: boolean
   helpOpen: boolean
+  /** Connected MIDI input names; null until MIDI access is granted. */
+  midiInputs: string[] | null
+  /** MIDI learn mode: the control picked on screen, waiting for a MIDI move. Null when off. */
+  midiLearn: { target: MidiTarget | null } | null
 }
 
 export const DEFAULT_SHORTCUTS: Record<string, string> = {
@@ -140,6 +146,7 @@ function loadPrefs(): Prefs {
     metronome: false,
     shortcuts: DEFAULT_SHORTCUTS,
     onboardingDone: [],
+    midiProfiles: {},
   }
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as Partial<Prefs> | null
@@ -167,6 +174,8 @@ let state: StudioState = {
   paletteOpen: false,
   agentOpen: false,
   helpOpen: false,
+  midiInputs: null,
+  midiLearn: null,
 }
 
 const listeners = new Set<() => void>()

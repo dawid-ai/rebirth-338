@@ -528,3 +528,15 @@ kbd { font: 500 10px var(--mono); color: var(--text-3); padding: 1px 4px; border
 }
 :root[data-contrast='high'] .clip { border-width: 2px; }
 :root[data-contrast='high'] :focus-visible { outline-width: 3px; }
+
+/* MIDI learn */
+.t-btn.midi-status.is-on { color: #1a1204; background: var(--amber); border-color: var(--amber); }
+.midi-learn { position: fixed; left: 50%; top: 64px; transform: translateX(-50%); z-index: 60; width: min(720px, calc(100vw - 32px)); background: var(--field-3); border: 1px solid var(--amber); border-radius: 8px; box-shadow: 0 18px 50px #000c; padding: 10px 12px; display: grid; gap: 8px; }
+.midi-learn header { display: flex; align-items: center; gap: 10px; color: var(--text-2); }
+.midi-learn header svg { color: var(--amber); flex: none; }
+.midi-learn header strong { color: var(--text); white-space: nowrap; }
+.midi-learn header span { flex: 1; min-width: 0; }
+.midi-learn ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 160px; overflow: auto; }
+.midi-learn li { display: grid; grid-template-columns: 120px 1fr auto auto; align-items: center; gap: 10px; padding: 3px 4px; border-top: 1px solid var(--line); font: 12px var(--mono); color: var(--text-2); }
+.midi-learn li b { font: 500 12px var(--sans); color: var(--text); }
+body.midi-learning [data-midi-target] { outline: 1px dashed var(--amber); outline-offset: 3px; border-radius: 6px; cursor: crosshair; }

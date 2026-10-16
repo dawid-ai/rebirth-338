@@ -8,6 +8,7 @@ import { engine, togglePlay } from '../audio/host'
 import { newProject, openProject, saveProject } from '../state/persistence'
 import { type View, dispatch, getState, redo, select, setPrefs, setState, setView, undo } from '../state/store'
 import { desktop } from '../platform/desktop'
+import { toggleMidiLearn } from '../midi/host'
 import { addTrack } from './AddTrackMenu'
 
 interface Action {
@@ -39,6 +40,7 @@ function actions(): Action[] {
     { id: 'save', label: desktop ? 'Save project' : 'Download project file', hint: 'Ctrl S', run: () => void saveProject(false) },
     ...(desktop ? [{ id: 'open', label: 'Open project folder…', run: () => void openProject() }] : []),
     { id: 'density', label: `Density: ${s.prefs.density === 'compact' ? 'normal' : s.prefs.density === 'normal' ? 'large' : 'compact'}`, run: () => setPrefs({ density: s.prefs.density === 'compact' ? 'normal' : s.prefs.density === 'normal' ? 'large' : 'compact' }) },
+    { id: 'midi-learn', label: s.midiLearn ? 'Finish MIDI learn' : 'MIDI learn: map controller knobs and buttons', run: toggleMidiLearn },
     { id: 'keys', label: s.prefs.keysToPads ? 'Stop playing instruments with computer keys' : 'Play instruments with computer keys', run: () => setPrefs({ keysToPads: !s.prefs.keysToPads }) },
     { id: 'contrast', label: s.prefs.contrast === 'high' ? 'Standard contrast' : 'High contrast', run: () => setPrefs({ contrast: s.prefs.contrast === 'high' ? 'normal' : 'high' }) },
     { id: 'help', label: 'Help and shortcuts', hint: 'F1', run: () => setState({ helpOpen: true }) },
