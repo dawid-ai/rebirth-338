@@ -10,6 +10,6 @@ export default defineConfig({
   base: './',
   publicDir: fileURLToPath(new URL('../web/public', import.meta.url)),
   plugins: [react()],
-  server: { port: 5175, strictPort: true },
+  server: { host: '127.0.0.1', port: 5175, strictPort: true },
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
 })

@@ -42,4 +42,5 @@ publish:
   provider: github
   owner: dawid-ai
   repo: rebirth-338
-  releaseType: release
+  # Tag pushes create a draft; publish it on GitHub after checking the installer.
+  releaseType: draft
