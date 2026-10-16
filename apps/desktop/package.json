@@ -4,8 +4,10 @@
   "version": "2.0.0-dev",
   "private": true,
   "main": "dist/main.cjs",
-  "dependencies": {
+  "type": "module",
+  "devDependencies": {
     "@reborn/studio-core": "2.0.0-dev"
   },
-  "type": "module"
+  "description": "RE:BORN desktop workstation",
+  "author": "Dawid"
 }

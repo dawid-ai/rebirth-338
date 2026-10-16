@@ -1,22 +1,26 @@
 import { ListChecks, PanelLeft, PanelRight } from 'lucide-react'
-import { type DragEvent, useEffect, useState, useSyncExternalStore } from 'react'
+import { type DragEvent, Suspense, lazy, useEffect, useState, useSyncExternalStore } from 'react'
 import { studio } from '@reborn/studio-core'
 import { engine, importAudioFile, togglePlay } from './audio/host'
 import { NOTE_KEYS, PAD_KEYS, recordHit } from './audio/recorder'
-import { AgentPanel } from './components/AgentPanel'
 import { Arrange } from './components/Arrange'
 import { Browser } from './components/Browser'
-import { Build, commitSceneRecording } from './components/Build'
+import { commitSceneRecording } from './components/Build'
 import { Dock } from './components/Dock'
-import { Help, ONBOARDING, completeOnboarding } from './components/Help'
+import { ONBOARDING, completeOnboarding } from './components/onboarding'
 import { Inspector } from './components/Inspector'
-import { Mix } from './components/Mix'
-import { Palette } from './components/Palette'
-import { Perform } from './components/Perform'
 import { Transport } from './components/Transport'
 import { desktop } from './platform/desktop'
 import { clearImportNotice, importNotice, importProjectFile, newProject, onImportNotice, openProject, saveProject } from './state/persistence'
 import { type View, dispatch, getState, redo, select, selectedTrackId, setPrefs, setState, setView, subscribe, toast, undo, useStudio } from './state/store'
+
+// Views and panels that are not needed for the first paint load on demand.
+const Build = lazy(() => import('./components/Build').then((m) => ({ default: m.Build })))
+const Mix = lazy(() => import('./components/Mix').then((m) => ({ default: m.Mix })))
+const Perform = lazy(() => import('./components/Perform').then((m) => ({ default: m.Perform })))
+const AgentPanel = lazy(() => import('./components/AgentPanel').then((m) => ({ default: m.AgentPanel })))
+const Palette = lazy(() => import('./components/Palette').then((m) => ({ default: m.Palette })))
+const Help = lazy(() => import('./components/Help').then((m) => ({ default: m.Help })))
 
 const VIEWS: { id: View; label: string }[] = [
   { id: 'arrange', label: 'Arrange' },
@@ -444,19 +448,23 @@ export default function App() {
           </div>
         </div>
         <div className="canvas">
-          {view === 'arrange' && <Arrange />}
-          {view === 'build' && <Build />}
-          {view === 'mix' && <Mix />}
-          {view === 'perform' && <Perform />}
+          <Suspense fallback={<div className="view-loading">Loading…</div>}>
+            {view === 'arrange' && <Arrange />}
+            {view === 'build' && <Build />}
+            {view === 'mix' && <Mix />}
+            {view === 'perform' && <Perform />}
+          </Suspense>
         </div>
         {view !== 'perform' && <Dock />}
       </main>
       {prefs.inspectorOpen && <Inspector overlay={!wide} onClose={() => setPrefs({ inspectorOpen: false })} />}
       {!wide && (prefs.browserOpen || prefs.inspectorOpen) && <div className="scrim" onClick={() => setPrefs({ browserOpen: false, inspectorOpen: false })} />}
       <StatusBar />
-      {agentOpen && <AgentPanel />}
-      {paletteOpen && <Palette onClose={() => setState({ paletteOpen: false })} />}
-      {helpOpen && <Help />}
+      <Suspense fallback={null}>
+        {agentOpen && <AgentPanel />}
+        {paletteOpen && <Palette onClose={() => setState({ paletteOpen: false })} />}
+        {helpOpen && <Help />}
+      </Suspense>
       <ImportNotice />
       <Toasts />
       {dragging && <div className="drop-overlay">Drop audio to import it, or a project file to open it</div>}

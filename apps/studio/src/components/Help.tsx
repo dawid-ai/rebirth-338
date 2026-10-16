@@ -1,23 +1,10 @@
 import { Check, Search, X } from 'lucide-react'
 import { useState } from 'react'
 import { DEFAULT_SHORTCUTS, getState, setPrefs, setState, useStudio } from '../state/store'
+import { ONBOARDING } from './onboarding'
 
 // Help: contextual tips for the current view, a first-run checklist, a
 // searchable guide, and the shortcut map (remappable).
-
-export const ONBOARDING = [
-  { id: 'play', label: 'Press Space to hear the starter beat' },
-  { id: 'step', label: 'Click the Acid clip and change a step in the dock' },
-  { id: 'clip', label: 'Double-click an empty lane to create a clip' },
-  { id: 'chop', label: 'Drag a break from Samples onto the Sampler lane' },
-  { id: 'mix', label: 'Open Mix (3) and analyze the mix' },
-  { id: 'export', label: 'Export a WAV' },
-]
-
-export function completeOnboarding(id: string) {
-  const done = getState().prefs.onboardingDone
-  if (!done.includes(id)) setPrefs({ onboardingDone: [...done, id] })
-}
 
 const GUIDE: { title: string; body: string; tags: string }[] = [
   { title: 'The layout', body: 'The transport stays on top and the song stays visible. Selecting anything (a track, clip, step, section, pad, or channel) changes the inspector on the right and the editor in the dock below. Views change only the center: Arrange (1), Build (2), Mix (3), Perform (4).', tags: 'shell inspector dock views' },

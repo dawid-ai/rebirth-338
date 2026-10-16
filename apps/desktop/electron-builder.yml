@@ -1,0 +1,45 @@
+# Windows-first desktop packaging (decision 4 in reBORNv2.md).
+# Signing: set CSC_LINK (path or base64 of a .pfx) and CSC_KEY_PASSWORD to sign;
+# without them the installer is built unsigned.
+appId: ai.dawid.reborn
+# Windows forbids ":" in folder and shortcut names, so packaging uses RE-BORN.
+productName: RE-BORN
+copyright: Copyright © 2026 Dawid
+directories:
+  output: ../../release
+  buildResources: build
+files:
+  - dist/**/*
+  - "!dist/**/*.map"
+  - package.json
+extraResources:
+  - from: ../studio/dist
+    to: studio
+  - from: ../../packages/cli/dist
+    to: cli
+  - from: ../../python/ismail-bridge
+    to: python/ismail-bridge
+    filter:
+      - "**/*"
+      - "!tests/**"
+      - "!**/__pycache__/**"
+      - "!venv/**"
+npmRebuild: false
+asar: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+  artifactName: RE-BORN-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: RE-BORN
+publish:
+  provider: github
+  owner: dawid-ai
+  repo: rebirth-338
+  releaseType: release

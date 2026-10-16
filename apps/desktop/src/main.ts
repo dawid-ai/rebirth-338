@@ -26,6 +26,7 @@ import { ApiServer, type RenderedFile } from './api-server'
 import { JobRunner } from './jobs'
 import { packProjectDirectory, readProjectPath, unpackProject, writeAtomic, writeProjectDirectory } from './project-dir'
 import { SessionStore } from './session'
+import { checkForUpdates, startUpdates } from './updater'
 
 const APP_ORIGIN = 'app://reborn'
 const DEV_URL = process.argv.includes('--dev') ? (process.env.REBORN_DEV_URL ?? 'http://127.0.0.1:5175') : undefined
@@ -293,6 +294,13 @@ async function buildMenu() {
           label: 'Open Log Folder',
           click: () => void shell.openPath(join(app.getPath('userData'), 'logs')),
         },
+        {
+          label: 'Check for Updates',
+          click: async () => {
+            const message = await checkForUpdates((m) => log('info', m))
+            await dialog.showMessageBox(mainWindow!, { type: 'info', message })
+          },
+        },
         { label: `RE:BORN ${app.getVersion()}`, enabled: false },
       ],
     },
@@ -387,6 +395,7 @@ function createWindow() {
     backgroundColor: '#080a0a',
     title: 'RE:BORN',
     show: false,
+    icon: app.isPackaged ? undefined : join(__dirname, '../build/icon.png'),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -450,6 +459,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc()
     await buildMenu()
     createWindow()
+    startUpdates((message) => log('info', message))
     if (process.env.REBORN_API !== 'off') {
       api = new ApiServer({ directory: app.getPath('userData'), version: app.getVersion(), rpc: { request: rendererRpc }, writeFiles: writeRenderedFiles, log: (message) => log('info', message), port: process.env.REBORN_API_PORT ? Number(process.env.REBORN_API_PORT) : undefined })
       await api.start().catch((error) => {

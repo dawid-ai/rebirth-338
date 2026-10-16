@@ -253,3 +253,5 @@ input[type='color'] { width: 34px; height: 26px; padding: 0; border: 1px solid v
 .deep-result { display: grid; gap: 4px; margin: 0 12px 10px; padding: 8px 10px; border-radius: 6px; border: 1px solid #3fd6e633; background: #3fd6e60c; font-size: 12px; }
 .deep-result.is-stale { border-color: #ffad3255; }
 .deep-result ul { margin: 0; padding-left: 16px; color: var(--text-2); }
+
+.view-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); }
