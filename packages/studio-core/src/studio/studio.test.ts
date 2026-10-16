@@ -281,6 +281,17 @@ describe('v1 import', () => {
     importV1Project(v1)
     expect(JSON.stringify(v1)).toBe(before)
   })
+
+  it('keeps v1 gain staging for the master and crossfaded buses', () => {
+    const { project } = importV1Project(createDefaultProject())
+    const volume = (kind: string) => project.tracks.find((t) => t.kind === kind)!.mixer.volume
+    expect(project.master.volume).toBeCloseTo(20 * Math.log10(0.76), 1)
+    expect(volume('acid')).toBeCloseTo(-3, 0)
+    expect(volume('drum')).toBeCloseTo(-3, 0)
+    expect(volume('deck')).toBeCloseTo(-3, 0)
+    expect(volume('wave')).toBe(0)
+    expect(volume('sampler')).toBe(0)
+  })
 })
 
 describe('migration', () => {

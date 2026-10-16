@@ -56,7 +56,7 @@ export class EventPlayer {
       if (device.kind === 'acid') playAcid(this.graph, output, device, time, seconds, event.note, event.velocity, event.accent, event.slideTo)
       else if (device.kind === 'wave') playWave(this.graph, output, device, time, seconds, event.note, event.velocity, event.accent, event.slide)
     } else if (event.kind === 'drum') {
-      if (device.kind === 'drum') playDrum(this.graph, output, device, event.voice, time, event.velocity, event.accent, track.id, this.openHats)
+      if (device.kind === 'drum') playDrum(this.graph, output, device, event.voice, time, event.velocity, event.accent, track.id, this.openHats, event.bar * 4.137)
     } else if (event.kind === 'pad' && device.kind === 'sampler') {
       const sourcePad = device.sixteenLevels === 'off' ? event.pad : 0
       const assetId = device.pads[sourcePad]?.assetId ?? device.source?.assetId

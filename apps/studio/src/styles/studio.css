@@ -75,7 +75,7 @@ input[type='color'] { width: 34px; height: 26px; padding: 0; border: 1px solid v
 .scene-cell.has-pattern { border-style: solid; background: color-mix(in oklab, var(--track) 20%, var(--field-2)); border-color: color-mix(in oklab, var(--track) 55%, var(--field)); }
 .scene-cell.is-na { border: 0; }
 .scene-cell select { flex: 1; min-width: 0; }
-.cell-edit { font-size: 11px; color: var(--text-3); padding: 2px 6px; border-radius: 3px; }
+.cell-edit { font-size: 11px; color: var(--text-2); padding: 2px 6px; border-radius: 3px; }
 .cell-edit:hover { color: var(--text); background: var(--field-4); }
 .empty-note { color: var(--text-3); }
 

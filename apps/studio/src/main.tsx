@@ -22,7 +22,11 @@ import { getState } from './state/store'
 
 async function boot() {
   // End-to-end tests read state through this hook; it is only exposed on request.
-  if (location.search.includes('e2e')) Object.assign(window, { __studio: { engine, getState } })
+  if (location.search.includes('e2e')) {
+    // Audit helpers load as a separate chunk, only in test mode.
+    const [studioEngine, analysis, core, v1Engine, store] = await Promise.all([import('@reborn/audio-engine/studio'), import('@reborn/analysis'), import('@reborn/studio-core'), import('@reborn/audio-engine'), import('./state/store')])
+    Object.assign(window, { __studio: { engine, getState, audit: { studioEngine, analysis, core, v1Engine, store } } })
+  }
   if (!location.search.includes('fresh')) await restoreSession()
   startAutosave()
   startApiHost()

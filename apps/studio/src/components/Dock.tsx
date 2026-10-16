@@ -464,10 +464,11 @@ export function Dock() {
                 <kbd>F1</kbd> opens help and the shortcut map
               </li>
             </ul>
-            {keysToPads && <p className="muted small">Computer keys play the selected instrument: A–K for notes (Z and X change octave), or the pad grid on a Sampler.</p>}
-            <button type="button" className="sr-only" onClick={() => setPrefs({ keysToPads: !keysToPads })}>
-              <Keyboard size={12} />
+            <button type="button" className="chip-btn" aria-pressed={keysToPads} onClick={() => setPrefs({ keysToPads: !keysToPads })}>
+              <Keyboard size={13} />
+              {keysToPads ? 'Computer keys play instruments: on' : 'Play instruments with computer keys'}
             </button>
+            {keysToPads && <p className="muted small">Computer keys play the selected instrument: A–K for notes (Z and X change octave), or the pad grid on a Sampler.</p>}
           </div>
         )}
       </div>

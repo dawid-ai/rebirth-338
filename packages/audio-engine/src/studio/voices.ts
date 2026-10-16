@@ -134,7 +134,7 @@ export function playWave(host: VoiceHost, output: AudioNode, device: WaveDevice,
   mix.connect(filter).connect(amp).connect(warmth).connect(output)
 }
 
-function noiseBurst(host: VoiceHost, time: number, duration: number, frequency: number, type: BiquadFilterType, level: number): GainNode {
+function noiseBurst(host: VoiceHost, time: number, duration: number, frequency: number, type: BiquadFilterType, level: number, seed = time): GainNode {
   const ctx = host.context
   const source = ctx.createBufferSource()
   const filter = ctx.createBiquadFilter()
@@ -147,9 +147,9 @@ function noiseBurst(host: VoiceHost, time: number, duration: number, frequency: 
   gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, level), time + Math.min(0.0015, duration * 0.12))
   gain.gain.exponentialRampToValueAtTime(0.0001, time + duration)
   source.connect(filter).connect(gain)
-  // Start at a time-derived offset so consecutive hits do not sound identical,
-  // while staying deterministic.
-  source.start(time, (time * 7.31) % Math.max(0.01, host.noise.duration - duration - 0.02))
+  // Read from a seed-derived offset so consecutive hits differ but a hit at
+  // the same song position sounds identical live, offline, and in any chunk.
+  source.start(time, (Math.abs(seed) * 7.31) % Math.max(0.01, host.noise.duration - duration - 0.02))
   source.stop(time + duration + 0.01)
   return gain
 }
@@ -157,7 +157,7 @@ function noiseBurst(host: VoiceHost, time: number, duration: number, frequency: 
 /** Open-hat gain nodes per track, so a closed hat can choke them. */
 export type OpenHatRegistry = Map<string, GainNode[]>
 
-export function playDrum(host: VoiceHost, output: AudioNode, device: DrumDevice, voiceName: DrumVoiceName, time: number, velocity: number, accent: boolean, chokeKey: string, openHats: OpenHatRegistry): void {
+export function playDrum(host: VoiceHost, output: AudioNode, device: DrumDevice, voiceName: DrumVoiceName, time: number, velocity: number, accent: boolean, chokeKey: string, openHats: OpenHatRegistry, seed = time): void {
   const voice: DrumVoiceState = device.voices[voiceName]
   if (!voice || voice.mute) return
   const ctx = host.context
@@ -194,14 +194,14 @@ export function playDrum(host: VoiceHost, output: AudioNode, device: DrumDevice,
       knockGain.gain.exponentialRampToValueAtTime(0.0001, time + (is808 ? 0.11 : 0.075))
       osc.connect(tone).connect(gain).connect(panner)
       knock.connect(knockGain).connect(panner)
-      if (!is808) noiseBurst(host, time, 0.018, 3200, 'highpass', level * 0.11).connect(panner)
+      if (!is808) noiseBurst(host, time, 0.018, 3200, 'highpass', level * 0.11, seed).connect(panner)
       start(osc, decay + 0.02)
       start(knock, 0.14)
       break
     }
     case 'snare': {
       const decay = 0.1 + voice.decay * (is808 ? 0.38 : 0.29)
-      noiseBurst(host, time, decay, (is808 ? 720 : 1120) + voice.tone * 2600, 'highpass', level * (is808 ? 0.43 : 0.56)).connect(panner)
+      noiseBurst(host, time, decay, (is808 ? 720 : 1120) + voice.tone * 2600, 'highpass', level * (is808 ? 0.43 : 0.56), seed).connect(panner)
       const osc = ctx.createOscillator()
       const membrane = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -222,7 +222,7 @@ export function playDrum(host: VoiceHost, output: AudioNode, device: DrumDevice,
     }
     case 'clap': {
       const decay = 0.13 + voice.decay * 0.35
-      ;[0, 0.018, 0.035].forEach((offset, index) => noiseBurst(host, time + offset, decay, 700 + voice.tone * 1200, 'bandpass', level * (index ? 0.3 : 0.43)).connect(panner))
+      ;[0, 0.018, 0.035].forEach((offset, index) => noiseBurst(host, time + offset, decay, 700 + voice.tone * 1200, 'bandpass', level * (index ? 0.3 : 0.43), seed + offset).connect(panner))
       break
     }
     case 'closedHat':
@@ -236,7 +236,7 @@ export function playDrum(host: VoiceHost, output: AudioNode, device: DrumDevice,
         openHats.set(chokeKey, [])
       }
       const decay = open ? 0.18 + voice.decay * 0.62 : 0.025 + voice.decay * 0.11
-      const noise = noiseBurst(host, time, decay, 5200 + (is808 ? 0 : 900) + voice.tone * 4500, 'highpass', level * (is808 ? 0.25 : 0.32))
+      const noise = noiseBurst(host, time, decay, 5200 + (is808 ? 0 : 900) + voice.tone * 4500, 'highpass', level * (is808 ? 0.25 : 0.32), seed)
       noise.connect(panner)
       if (open) openHats.set(chokeKey, [...(openHats.get(chokeKey) ?? []).slice(-3), noise])
       const metallic = ctx.createBufferSource()

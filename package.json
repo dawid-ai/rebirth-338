@@ -17,7 +17,9 @@
     "studio": "vite --config apps/studio/vite.config.ts",
     "studio:build": "vite build --config apps/studio/vite.config.ts",
     "dist": "npm run desktop:build && electron-builder --config electron-builder.yml --projectDir apps/desktop --win --publish never",
-    "release": "npm run desktop:build && electron-builder --config electron-builder.yml --projectDir apps/desktop --win --publish always"
+    "release": "npm run desktop:build && electron-builder --config electron-builder.yml --projectDir apps/desktop --win --publish always",
+    "audit:a11y": "node scripts/a11y-audit.mjs",
+    "audit:audio": "node scripts/audio-audit.mjs"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "5.3.0",

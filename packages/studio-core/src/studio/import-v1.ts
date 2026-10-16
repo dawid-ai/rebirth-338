@@ -122,8 +122,7 @@ export function importV1Project(source: ProjectState): { project: StudioProject;
   const globalDelay = delayOn ? 0.3 : 0
   const globalReverb = reverbOn ? 0.24 : 0
   const [deckA, deckB] = crossfade(v1.crossfader)
-  const centered = Math.SQRT1_2
-  if (v1.crossfader !== 0) report.approximations.push(`The crossfader at ${v1.crossfader} is baked into Acid and drum track volumes.`)
+  if (v1.crossfader !== 0) report.approximations.push(`The crossfader at ${v1.crossfader} is baked into Acid, drum, and deck track volumes.`)
   if (v1.mode === 'pattern') report.notes.push('The project was in Pattern mode; its song chain still imports as the arrangement, and a “Current” scene holds the selected patterns.')
 
   returns.forEach((ret) => {
@@ -140,7 +139,9 @@ export function importV1Project(source: ProjectState): { project: StudioProject;
     }
   })
   project.master = {
-    volume: toDb(clamp(v1.master, 0, 1.5) / 0.76),
+    // Both engines share the same 0.76 headroom stage, so the v1 master gain
+    // carries over as is.
+    volume: toDb(clamp(v1.master, 0, 1.5)),
     ceiling: -0.3,
     drive: u(v1.masterDrive),
     compress: u(v1.compressor),
@@ -161,8 +162,10 @@ export function importV1Project(source: ProjectState): { project: StudioProject;
     delay: ['send.delay', (v) => clamp(globalDelay + u(v) * send, 0, 1)],
     reverb: ['send.reverb', (v) => clamp(globalReverb + u(v) * send, 0, 1)],
   })
-  const applyMixer = (track: Track, state: { pan: number; muted: boolean; solo: boolean; eqLow: number; eqMid: number; eqHigh: number; delay: number; reverb: number }, sendScale: number, crossGain = centered) => {
-    track.mixer.volume = toDb(crossGain / centered)
+  const applyMixer = (track: Track, state: { pan: number; muted: boolean; solo: boolean; eqLow: number; eqMid: number; eqHigh: number; delay: number; reverb: number }, sendScale: number, crossGain = 1) => {
+    // v1 applies the equal-power crossfader gain (−3 dB at center) to Acid,
+    // drum, and deck buses; v2 has no crossfader, so it moves into volume.
+    track.mixer.volume = toDb(crossGain)
     track.mixer.pan = clamp(state.pan / 100, -1, 1)
     track.mixer.mute = state.muted
     track.mixer.solo = state.solo
@@ -358,7 +361,7 @@ export function importV1Project(source: ProjectState): { project: StudioProject;
     const track = createTrack('deck', `Deck ${'AB'[index]}`, color(), returns)
     if (deck.assetId) assetIds.add(deck.assetId)
     track.device = { kind: 'deck', assetId: deck.assetId, gain: u(deck.gain), pitch: clamp(deck.pitch, -12, 12), filter: clamp(deck.filter / 100, -1, 1), loop: deck.loop, loopStart: deck.loopStart, loopEnd: deck.loopEnd, cue: deck.cuePoint } satisfies DeckDevice
-    applyMixer(track, deck, 0.62)
+    applyMixer(track, deck, 0.62, index === 0 ? deckA : deckB)
     if (deck.rate !== 1) report.approximations.push(`Deck ${'AB'[index]} rate ${deck.rate}× was folded into its pitch.`)
     if (deck.rate !== 1) (track.device as DeckDevice).pitch = clamp(deck.pitch + 12 * Math.log2(deck.rate), -12, 12)
     tracks.push(track)

@@ -40,3 +40,25 @@ describe('band energies', () => {
     expect(bands.harsh.share).toBeGreaterThan(0.95)
   })
 })
+
+describe('band coverage on long signals', () => {
+  it('gives the same shares when the hits shift slightly', () => {
+    const rate = 44100
+    const render = (offset: number) => {
+      const data = new Float32Array(rate * 120)
+      // A 50 Hz kick every half second with a short 150 Hz attack.
+      for (let hit = offset; hit < data.length - rate; hit += rate / 2) {
+        for (let i = 0; i < 8000; i += 1) {
+          const env = Math.exp(-i / 2500)
+          const frequency = i < 1500 ? 150 : 50
+          data[hit + i] += Math.sin((2 * Math.PI * frequency * i) / rate) * env
+        }
+      }
+      return bandEnergies([data], rate)
+    }
+    const a = render(0)
+    const b = render(733)
+    expect(Math.abs(a.sub.share - b.sub.share)).toBeLessThan(0.02)
+    expect(Math.abs(a.bass.share - b.bass.share)).toBeLessThan(0.02)
+  })
+})

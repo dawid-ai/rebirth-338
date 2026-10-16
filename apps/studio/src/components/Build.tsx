@@ -2,7 +2,7 @@ import { CircleStop, Play, Plus } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { studio } from '@reborn/studio-core'
 import { engine, usePlayhead } from '../audio/host'
-import { dispatch, getState, select, setState, toast, useStudio } from '../state/store'
+import { dispatch, getState, select, toast, useStudio } from '../state/store'
 
 // Build view: tracks are rows, scenes are columns. Launching a scene starts
 // its column at the next bar. With record armed, launches are written into
@@ -132,9 +132,6 @@ export function Build() {
         ))}
       </div>
       {!scenes.length && <p className="empty-note">No scenes yet. Add one, pick a pattern per track, then launch it.</p>}
-      <button type="button" className="sr-only" onClick={() => setState({ recording: !recording })}>
-        Toggle recording
-      </button>
     </div>
   )
 }

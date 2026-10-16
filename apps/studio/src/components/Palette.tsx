@@ -38,6 +38,7 @@ function actions(): Action[] {
     { id: 'save', label: desktop ? 'Save project' : 'Download project file', hint: 'Ctrl S', run: () => void saveProject(false) },
     ...(desktop ? [{ id: 'open', label: 'Open project folder…', run: () => void openProject() }] : []),
     { id: 'density', label: `Density: ${s.prefs.density === 'compact' ? 'normal' : s.prefs.density === 'normal' ? 'large' : 'compact'}`, run: () => setPrefs({ density: s.prefs.density === 'compact' ? 'normal' : s.prefs.density === 'normal' ? 'large' : 'compact' }) },
+    { id: 'keys', label: s.prefs.keysToPads ? 'Stop playing instruments with computer keys' : 'Play instruments with computer keys', run: () => setPrefs({ keysToPads: !s.prefs.keysToPads }) },
     { id: 'contrast', label: s.prefs.contrast === 'high' ? 'Standard contrast' : 'High contrast', run: () => setPrefs({ contrast: s.prefs.contrast === 'high' ? 'normal' : 'high' }) },
     { id: 'help', label: 'Help and shortcuts', hint: 'F1', run: () => setState({ helpOpen: true }) },
   ]
@@ -96,7 +97,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
           />
           <kbd>Esc</kbd>
         </div>
-        <ul className="palette-list" role="listbox">
+        <ul className="palette-list" role="listbox" aria-label="Commands and agent suggestions" tabIndex={0}>
           {items.map((item, i) => (
             <li key={item.kind === 'action' ? item.action.id : 'agent'} role="option" aria-selected={i === active} className={`${i === active ? 'is-active' : ''} ${item.kind}`} onPointerEnter={() => setActive(i)} onClick={() => run(i)}>
               {item.kind === 'action' ? (

@@ -26,9 +26,10 @@ export type BandEnergies = Record<BandName, BandEnergy>
 
 const BAND_FFT_SIZE = 4096
 const MIN_BAND_FFT_SIZE = 256
-// Long signals are sampled with at most this many evenly spaced frames per channel,
-// which keeps a four-minute render cheap while staying representative.
-const MAX_BAND_FRAMES = 64
+// Frames tile the signal back to back up to this many per channel (about six
+// minutes at 44.1 kHz). Sparse sampling made band shares depend on where frames
+// fell relative to kick transients, so two renders of the same song disagreed.
+const MAX_BAND_FRAMES = 4096
 
 function frameSizeFor(length: number): number {
   let size = BAND_FFT_SIZE
