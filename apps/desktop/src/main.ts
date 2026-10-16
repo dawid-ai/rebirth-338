@@ -15,6 +15,7 @@ import {
   type SaveProjectRequest,
   type SaveProjectResult,
   migrateProject,
+  studio,
   projectDirectoryName,
 } from '@reborn/studio-core'
 import { JobRunner } from './jobs'
@@ -26,7 +27,9 @@ const DEV_URL = process.argv.includes('--dev') ? (process.env.REBORN_DEV_URL ?? 
 const RENDERER_DIRECTORY = resolve(__dirname, '../../web/dist-desktop')
 const E2E = process.env.REBORN_E2E === '1'
 
-if (process.env.REBORN_USER_DATA) app.setPath('userData', resolve(process.env.REBORN_USER_DATA))
+// The product name contains a colon, which Windows forbids in folder names,
+// so the user-data folder gets an explicit name. The CLI looks here too.
+app.setPath('userData', process.env.REBORN_USER_DATA ? resolve(process.env.REBORN_USER_DATA) : join(app.getPath('appData'), 'RE-BORN'))
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } },
@@ -132,24 +135,25 @@ async function openProject(requested?: string): Promise<OpenedProject | null> {
     log('info', `Unpacked project to ${path}.`)
   }
   const opened = await readProjectPath(path)
-  if (isProjectDirectory(opened.path)) await session.addRecent(opened.path, opened.document.project.name)
+  if (isProjectDirectory(opened.path)) await session.addRecent(opened.path, opened.document.studio?.name ?? opened.document.project?.name ?? 'Untitled')
   await buildMenu()
   log('info', `Opened ${opened.path} (${opened.assets.length} assets, ${opened.missing.length} missing).`)
   return opened
 }
 
 async function saveProject(request: SaveProjectRequest): Promise<SaveProjectResult | null> {
-  const project = migrateProject(request.project)
+  const content = request.studio ? { studio: studio.migrateStudioProject(request.studio) } : { project: migrateProject(request.project) }
+  const projectName = content.studio?.name ?? content.project?.name ?? 'Untitled'
   const assets: DesktopAssetPayload[] = []
   for (const asset of request.assets ?? []) {
     const data = toArrayBuffer(asset?.data)
     if (typeof asset?.id === 'string' && data) assets.push({ ...asset, data })
   }
   const reuse = !request.saveAs && request.path && isProjectDirectory(request.path)
-  const directory = reuse ? request.path! : await chooseSaveDirectory(project.name)
+  const directory = reuse ? request.path! : await chooseSaveDirectory(projectName)
   if (!directory) return null
-  const result = await writeProjectDirectory(directory, project, assets, app.getVersion())
-  await session.addRecent(directory, project.name)
+  const result = await writeProjectDirectory(directory, content, assets, app.getVersion())
+  await session.addRecent(directory, projectName)
   await buildMenu()
   log('info', `Saved ${directory} (${result.writtenAssets} written, ${result.reusedAssets} unchanged).`)
   return { path: directory, ...result }
@@ -264,10 +268,11 @@ function registerIpc() {
   handle(IPC.cancelJob, async (id: string) => jobs.cancel(String(id)))
   handle(IPC.saveWav, (data: unknown, name: string) => saveWav(data, String(name ?? 'export.wav')))
   handle(IPC.takeRecovery, () => session.takeRecovery())
-  ipcMain.on(IPC.writeRecovery, (event, state: { project: unknown; path: unknown }) => {
+  ipcMain.on(IPC.writeRecovery, (event, state: { project?: unknown; studio?: unknown; path: unknown }) => {
     if (!isTrusted(event)) return
     try {
-      void session.writeRecovery(migrateProject(state?.project), typeof state?.path === 'string' ? state.path : null)
+      const content = state?.studio ? { studio: studio.migrateStudioProject(state.studio) } : { project: migrateProject(state?.project) }
+      void session.writeRecovery(content, typeof state?.path === 'string' ? state.path : null)
     } catch (error) {
       log('warn', `Ignored invalid recovery snapshot: ${String(error)}`)
     }

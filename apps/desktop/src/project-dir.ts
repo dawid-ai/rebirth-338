@@ -11,8 +11,10 @@ import {
   type OpenedProject,
   type ProjectAssetEntry,
   type ProjectState,
+  type studio,
   assetFileName,
   createProjectDocument,
+  createStudioDocument,
   readProjectDocument,
 } from '@reborn/studio-core'
 import { type ZipSource, extractZip, writeZip } from './zip'
@@ -52,7 +54,10 @@ export interface WriteResult {
  * samples. Files no longer referenced are kept; nothing in the folder is
  * deleted on save.
  */
-export async function writeProjectDirectory(directory: string, project: ProjectState, assets: DesktopAssetPayload[], appVersion: string): Promise<WriteResult> {
+export type ProjectContent = { project: ProjectState; studio?: undefined } | { studio: studio.StudioProject; project?: undefined }
+
+export async function writeProjectDirectory(directory: string, content: ProjectContent | ProjectState, assets: DesktopAssetPayload[], appVersion: string): Promise<WriteResult> {
+  const payload: ProjectContent = 'version' in content && 'bass' in content ? { project: content as ProjectState } : (content as ProjectContent)
   const assetDirectory = join(directory, ASSET_DIRECTORY)
   await mkdir(assetDirectory, { recursive: true })
   const previous = await readExistingManifest(directory)
@@ -73,7 +78,7 @@ export async function writeProjectDirectory(directory: string, project: ProjectS
     }
     entries.push({ id: asset.id, kind: asset.kind, name: asset.name, mimeType: asset.mimeType, file, bytes: bytes.length, sha256: checksum })
   }
-  const document = createProjectDocument(project, entries, { appVersion })
+  const document = payload.studio ? createStudioDocument(payload.studio, entries, { appVersion }) : createProjectDocument(payload.project!, entries, { appVersion })
   await writeAtomic(join(directory, PROJECT_FILE), `${JSON.stringify(document, null, 2)}\n`)
   return { savedAt: document.savedAt, writtenAssets, reusedAssets }
 }

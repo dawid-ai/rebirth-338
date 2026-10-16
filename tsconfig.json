@@ -8,6 +8,9 @@
       "path": "./packages/audio-engine"
     },
     {
+      "path": "./packages/cli"
+    },
+    {
       "path": "./apps/web"
     },
     {

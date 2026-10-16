@@ -1067,6 +1067,10 @@ export default function App() {
       if (!opened) return
       await importDesktopAssets(opened)
       const next = opened.document.project
+      if (!next) {
+        notify('THIS IS A V2 STUDIO PROJECT · OPEN IT IN RE:BORN STUDIO')
+        return
+      }
       savedJson.current = JSON.stringify(next)
       setProjectPath(opened.path)
       setEdited(false)
@@ -1118,7 +1122,7 @@ export default function App() {
     if (!desktop) return
     const bridge = desktop
     void bridge.takeRecovery().then((state) => {
-      if (!state) return
+      if (!state?.project) return
       savedJson.current = null
       setProjectPath(state.path)
       setEdited(true)

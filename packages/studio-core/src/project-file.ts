@@ -1,11 +1,14 @@
 import { hydrateProject, type ProjectState } from './model'
+import type { StudioProject } from './studio/model'
+import { migrateStudioProject } from './studio/migrate'
 
 // On-disk project format shared by the web and desktop editions. A desktop
 // project is a `My Beat.reborn/` directory whose `project.json` holds a
 // `ProjectDocument`; audio lives beside it in `assets/`.
 
 export const PROJECT_FORMAT = 'reborn-project'
-export const PROJECT_FORMAT_VERSION = 1
+/** Version 1 documents hold a v1 project; version 2 holds a v2 studio project. */
+export const PROJECT_FORMAT_VERSION = 2
 export const PROJECT_DIRECTORY_EXTENSION = '.reborn'
 export const PACKED_PROJECT_EXTENSION = '.rebornpack'
 export const PROJECT_FILE = 'project.json'
@@ -28,7 +31,10 @@ export interface ProjectDocument {
   formatVersion: number
   savedAt: string
   app: { name: string; version: string }
-  project: ProjectState
+  /** v1 workstation project (format 1). */
+  project?: ProjectState
+  /** v2 studio project (format 2). */
+  studio?: StudioProject
   assets: ProjectAssetEntry[]
 }
 
@@ -65,10 +71,21 @@ export function parseProject(json: string): ProjectState {
 export function createProjectDocument(project: ProjectState, assets: ProjectAssetEntry[], options: { savedAt?: string; appVersion?: string } = {}): ProjectDocument {
   return {
     format: PROJECT_FORMAT,
-    formatVersion: PROJECT_FORMAT_VERSION,
+    formatVersion: 1,
     savedAt: options.savedAt ?? new Date().toISOString(),
     app: { name: 'RE:BORN', version: options.appVersion ?? '2.0.0-dev' },
     project,
+    assets: [...assets].sort((a, b) => a.id.localeCompare(b.id)),
+  }
+}
+
+export function createStudioDocument(studio: StudioProject, assets: ProjectAssetEntry[], options: { savedAt?: string; appVersion?: string } = {}): ProjectDocument {
+  return {
+    format: PROJECT_FORMAT,
+    formatVersion: 2,
+    savedAt: options.savedAt ?? new Date().toISOString(),
+    app: { name: 'RE:BORN', version: options.appVersion ?? '2.0.0-dev' },
+    studio,
     assets: [...assets].sort((a, b) => a.id.localeCompare(b.id)),
   }
 }
@@ -89,16 +106,26 @@ export function readProjectDocument(json: string): ProjectDocument {
       throw new ProjectFormatError('This project was saved by a newer version of RE:BORN.')
     }
     const assets = Array.isArray(value.assets) ? value.assets.filter(isAssetEntry) : []
-    return {
+    const base = {
       format: PROJECT_FORMAT,
       formatVersion: value.formatVersion,
       savedAt: typeof value.savedAt === 'string' ? value.savedAt : new Date(0).toISOString(),
       app: isRecord(value.app) ? { name: String(value.app.name ?? 'RE:BORN'), version: String(value.app.version ?? 'unknown') } : { name: 'RE:BORN', version: 'unknown' },
-      project: migrateProject(value.project),
       assets,
-    }
+    } as const
+    if (value.studio !== undefined) return { ...base, studio: toStudio(value.studio) }
+    return { ...base, project: migrateProject(value.project) }
   }
+  if (isRecord(value) && value.schema === 'reborn-studio') return createStudioDocument(toStudio(value), [], { savedAt: new Date(0).toISOString() })
   return createProjectDocument(migrateProject(value), [], { savedAt: new Date(0).toISOString(), appVersion: '1.x' })
+}
+
+function toStudio(value: unknown): StudioProject {
+  try {
+    return migrateStudioProject(value)
+  } catch (error) {
+    throw new ProjectFormatError(error instanceof Error ? error.message : 'This is not a valid RE:BORN v2 project.')
+  }
 }
 
 function isAssetEntry(value: unknown): value is ProjectAssetEntry {

@@ -1,4 +1,5 @@
 import type { ProjectState } from './model'
+import type { StudioProject } from './studio/model'
 import type { ProjectAssetKind, ProjectDocument } from './project-file'
 
 // Contract between the desktop main process and the renderer. The preload
@@ -23,7 +24,10 @@ export interface OpenedProject {
 export interface SaveProjectRequest {
   path: string | null
   saveAs: boolean
-  project: ProjectState
+  /** v1 workstation project. */
+  project?: ProjectState
+  /** v2 studio project. */
+  studio?: StudioProject
   assets: DesktopAssetPayload[]
 }
 
@@ -41,7 +45,8 @@ export interface RecentProject {
 }
 
 export interface RecoveryState {
-  project: ProjectState
+  project?: ProjectState
+  studio?: StudioProject
   path: string | null
   savedAt: string
 }
@@ -77,7 +82,7 @@ export interface DesktopBridge {
   packProject(path: string): Promise<{ jobId: string } | null>
   cancelJob(id: string): Promise<void>
   saveWav(data: ArrayBuffer, suggestedName: string): Promise<string | null>
-  writeRecovery(state: { project: ProjectState; path: string | null }): void
+  writeRecovery(state: { project?: ProjectState; studio?: StudioProject; path: string | null }): void
   takeRecovery(): Promise<RecoveryState | null>
   setDocumentState(state: { title: string; edited: boolean }): void
   log(level: LogLevel, message: string): void

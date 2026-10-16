@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { LogLevel, ProjectState, RecentProject, RecoveryState } from '@reborn/studio-core'
+import type { LogLevel, ProjectState, RecentProject, RecoveryState, studio } from '@reborn/studio-core'
 import { writeAtomic } from './project-dir'
 
 // Per-user desktop state that never belongs inside a project: recent files,
@@ -57,8 +57,8 @@ export class SessionStore {
     return items
   }
 
-  writeRecovery(project: ProjectState, path: string | null): Promise<void> {
-    const state: RecoveryState = { project, path, savedAt: new Date().toISOString() }
+  writeRecovery(content: { project?: ProjectState; studio?: studio.StudioProject }, path: string | null): Promise<void> {
+    const state: RecoveryState = { ...content, path, savedAt: new Date().toISOString() }
     this.recoveryWrite = this.recoveryWrite.then(() => writeAtomic(this.recoveryFile, JSON.stringify(state))).catch((error: unknown) => this.log('error', `Recovery write failed: ${String(error)}`))
     return this.recoveryWrite
   }

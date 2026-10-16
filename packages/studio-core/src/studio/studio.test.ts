@@ -299,7 +299,7 @@ describe('every command', () => {
     // Guard: listing every command keeps new commands from shipping untested.
     const covered: Command['type'][] = [
       'project.summary', 'track.get', 'clip.list', 'pattern.get', 'mixer.trace', 'project.update', 'master.set', 'return.set', 'track.add', 'track.remove', 'track.update', 'mixer.set', 'send.set',
-      'parameter.set', 'device.update', 'drum.voice.set', 'macro.set', 'pad.set', 'sample.slice', 'asset.add', 'pattern.create', 'pattern.write', 'pattern.update', 'step.set', 'drum.step.set',
+      'parameter.set', 'device.update', 'drum.voice.set', 'macro.set', 'pad.set', 'deck.set', 'sample.slice', 'asset.add', 'pattern.create', 'pattern.write', 'pattern.update', 'step.set', 'drum.step.set',
       'pad.hit', 'pad.record', 'clip.create', 'clip.move', 'clip.resize', 'clip.duplicate', 'clip.delete', 'clip.makeUnique', 'clip.split', 'clip.set', 'time.insert', 'time.delete',
       'section.add', 'section.update', 'section.remove', 'scene.add', 'scene.set', 'scene.remove', 'scene.record', 'automation.write', 'automation.clear',
     ]
@@ -328,6 +328,9 @@ describe('every command', () => {
     const sampler = project.tracks.find((t) => t.kind === 'sampler')!
     expect(sampler.device.kind === 'sampler' && sampler.device.pads.slice(0, 4).map((p) => [p.start, p.end])).toEqual([[0, 0.25], [0.25, 0.5], [0.5, 0.75], [0.75, 1]])
     step('pad.set', { trackId: 'Sampler', pad: 2, pitch: 5, choke: 1 })
+    step('track.add', { kind: 'deck', name: 'Deck A' })
+    step('deck.set', { trackId: 'Deck A', assetId: 'a1', pitch: 2, loop: false })
+    expect(() => step('deck.set', { trackId: 'Pad', gain: 1 })).toThrow(/not a deck/)
     const created = step('pattern.create', { trackId: 'Sampler', length: 64 })
     step('pad.hit', { patternId: created.patternId, step: 3, pad: 1 })
     step('pad.record', { patternId: created.patternId, hits: [{ step: 0, pad: 0, velocity: 90 }, { step: 70, pad: 0 }] })

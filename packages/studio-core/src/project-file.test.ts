@@ -28,7 +28,7 @@ describe('project documents', () => {
     const project = createDefaultProject()
     const document = readProjectDocument(serializeProject(project))
     expect(document.app.version).toBe('1.x')
-    expect(document.project.bass).toHaveLength(2)
+    expect(document.project!.bass).toHaveLength(2)
     expect(document.assets).toEqual([])
   })
 

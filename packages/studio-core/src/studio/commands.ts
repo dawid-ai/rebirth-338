@@ -421,6 +421,29 @@ const SPECS: CommandSpec[] = [
     },
   },
   {
+    type: 'deck.set',
+    summary: 'Load audio into a deck or change its gain, pitch, filter, loop, or cue point.',
+    mutates: true,
+    params: {
+      trackId: s('Deck track.'),
+      assetId: s('Asset to load.', false),
+      gain: n('0..1.', false, { min: 0, max: 1 }),
+      pitch: n('Semitones.', false, { min: -12, max: 12 }),
+      filter: n('-1 high-pass .. 1 low-pass.', false, { min: -1, max: 1 }),
+      loop: b('Loop playback.'),
+      loopStart: n('Seconds.', false, { min: 0 }),
+      loopEnd: n('Seconds; 0 loops the whole file.', false, { min: 0 }),
+      cue: n('Cue point in seconds.', false, { min: 0 }),
+    },
+    run: (project, p) => {
+      const track = requireTrack(project, str(p, 'trackId'))
+      if (track.device.kind !== 'deck') throw new StudioError('invalid', `${track.name} is not a deck.`)
+      if (p.assetId !== undefined && !project.assets[str(p, 'assetId')]) throw new StudioError('not_found', `No asset "${str(p, 'assetId')}".`)
+      const { trackId: _t, ...patch } = p
+      return { project: updateTrack(project, track.id, (t) => (t.device.kind === 'deck' ? { ...t, device: { ...t.device, ...patch } } : t)) }
+    },
+  },
+  {
     type: 'sample.slice',
     summary: 'Set the sampler’s source asset and slice points (normalized 0..1 positions). Optionally assign slices to pads.',
     mutates: true,

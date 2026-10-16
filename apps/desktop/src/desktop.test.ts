@@ -69,7 +69,7 @@ describe('project directories', () => {
     expect((await stat(join(directory, 'assets', 's1.wav'))).mtimeMs).toBe(before)
 
     const opened = await readProjectPath(directory)
-    expect(opened.document.project.name).toBe('DIR TEST')
+    expect(opened.document.project!.name).toBe('DIR TEST')
     expect(opened.assets.map((a) => [a.id, [...new Uint8Array(a.data)]])).toEqual([['s1', [1, 2, 3]]])
     expect(opened.missing).toEqual([])
   })
@@ -122,7 +122,7 @@ describe('session store', () => {
   it('offers recovery only after an unclean shutdown', async () => {
     const first = new SessionStore(root)
     await first.start()
-    await first.writeRecovery(createDefaultProject(), 'C:/beats/a.reborn')
+    await first.writeRecovery({ project: createDefaultProject() }, 'C:/beats/a.reborn')
     // No finish(): the process "crashed".
     const second = new SessionStore(root)
     await second.start()
